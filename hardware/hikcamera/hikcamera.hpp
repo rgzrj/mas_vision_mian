@@ -1,0 +1,123 @@
+#ifndef _HIKCAMERA_H_
+#define _HIKCAMERA_H_
+
+#include <opencv2/core/mat.hpp>
+#include <chrono>
+#include <string>
+#include <cstdint>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+
+#include "MvCameraControl.h"
+
+#include "common_def.hpp"
+
+namespace hikcamera
+{
+class HikCamera
+{
+  public:
+    HikCamera(const std::string &config_path = "config/hikcamera.yaml");
+    ~HikCamera();
+
+    // 禁止误拷贝相机句柄
+    HikCamera(const HikCamera&) = delete;
+    HikCamera& operator=(const HikCamera&) = delete;
+
+    // 首次调用会顺带启动内部的采集/守护线程（无论本次连接是否成功），
+    // 之后即便暂时找不到设备，守护线程也会持续按退避策略自动重试。
+    bool openCamera();
+    void closeCamera();
+
+    /**
+     * @brief 从内部帧队列中取出一帧图像（阻塞直至有数据或超时 kQueueWaitMs 毫秒）
+     * @return CameraFrame，若超时仍无数据则返回空对象。
+     */
+    CameraFrame getImage();
+
+    // 获取连接状态（无锁读取，供外部轮询展示用）
+    bool isConnectedStatus() const { return isConnected.load(std::memory_order_relaxed); }
+
+  private:
+    cv::Mat processFrame(MV_FRAME_OUT *pstFrame);
+
+    void markDisconnected(std::chrono::steady_clock::time_point now_steady);     // 记录断线信号
+    void logRecoveryLatencyIfPending();                                          // 记录重连恢复延迟的日志（仅在首帧到达时打印一次）
+    
+    static bool PrintDeviceInfo(MV_CC_DEVICE_INFO *pstMVDevInfo);                // 辅助函数
+    static void __stdcall ExceptionCallBack(unsigned int nMsgType, void *pUser); //SDK 异常回调注册
+
+
+    // ---- 内部线程 ----
+    void TryConnect(bool bypass_backoff = false);   // 重连：现在由内部守护线程(daemonLoop)周期性驱动，一般无需外部调用
+    void captureLoop();                             // 采集线程：持续抓帧、转换、推入队列，更新心跳
+    void daemonLoop();                              // 守护线程：每 kDaemonPollMs 检查一次连接状态与心跳，必要时重连
+    void pushFrame(CameraFrame &&frame);
+    void startThreads();                            // 幂等：仅在未运行时真正创建线程
+    void stopThreads();                             // 幂等：设置退出标志并 join
+
+    // ---- 内部状态 ----
+    void              *handle;                          // 相机句柄（仅在持有 camera_mutex_ 时读写）
+    std::atomic<bool> isConnected;                      // 连接状态（供 isConnectedStatus() 无锁读取）
+    char              serialNumber[64];                 // 设备序列号
+    std::string       target_serial_;                   // 期望连接的设备序列号（空串表示不指定）
+
+    bool  sdk_initialized_         = false;             // 全局 SDK 初始化状态标志
+    bool  wedge_detected_          = false;             // 锁卡死标志位，防止相机阻塞使锁长时间被占用  
+    bool  was_connected_           = true;
+    bool  was_stalled_             = false;
+
+    int   fail_count_              = 0;                 // 保留字段：兼容旧接口，新重连判定不再依赖它
+    int   consecutive_sdk_errors_  = 0;                 // 相机启动连续错误计数器
+    int   pool_index               = 0;
+    int   reconnect_backoff_ms_    = kInitialBackoffMs; // 当前需要等待的退避间隔
+
+    float exposure_time_;                               // 曝光时间
+    float gain_;                                        // 增益
+
+    // ---- 线程 / 队列相关新增常量 ----
+    static constexpr int    kInitialBackoffMs        = 200;   // TryConnect 初始退避 200ms
+    static constexpr int    kMaxBackoffMs            = 500;   // TryConnect 最大退避 500ms
+    static constexpr int    kFailLogThrottleMs       = 2000;  // TryConnect 失败日志节流间隔
+    static constexpr int    kPoolCount               = 5;
+    static constexpr int    kMaxConsecutiveSdkErrors = 5;     // captureLoop    错误计数累积阈值
+    static constexpr int    kDaemonPollMs            = 100;   // daemonLoop     轮询间隔
+    static constexpr int    kWatchdogTimeoutMs       = 1000;  // daemonLoop     超时阈值
+    static constexpr int    kWedgeEscalateMs         = 10000; // daemonLoop     日志升级等待时长
+    static constexpr int    kWedgeLogDebounceMisses  = 3;     // daemonLoop     抢锁失败日志触发阈值
+    static constexpr int    kWedgeLogThrottleMs      = 2000;  // daemonLoop     抢锁失败日志节流间隔  
+    static constexpr size_t kQueueCapacity           = 4;     // pushFrame      帧队列容量，超出丢弃最旧帧
+    static constexpr int    kQueueWaitMs             = 100;   // getImage       等待队列的超时时间
+    static constexpr int    kCloseTeardownWarnMs     = 150;   // closeCamera    相机关闭耗时警告阈值
+    static constexpr int    kGetImageBufferTimeoutMs = 20;    // GetImageBuffer 单次调用的 SDK 内部超时
+
+    static constexpr int    kCameraLockTimeoutMs     = 200;   // openCamera/closeCamera 等慢路径的等待上限
+    static constexpr int    kCameraFastLockTimeoutMs = 20;    // captureLoop/daemonLoop 高频轮询的等待上限
+
+    std::thread             capture_thread_;
+    std::thread             daemon_thread_;
+
+    std::mutex              queue_mutex_;                      // 保护相机帧队列
+    std::timed_mutex        camera_mutex_;                     // 保护 handle / isConnected 及一切直接的 SDK 调用
+    std::atomic<int64_t>    t_disconnect_signal_ms_{0};        // 断线信号触发时刻（SDK回调 / 首次判定为持续性错误）
+    std::atomic<int64_t>    t_grab_started_ms_     {0};        // 相机真正取流的时间
+    std::atomic<bool>       first_frame_pending_   {false};    // true 表示"重连完成等待首帧到达"
+    std::atomic<bool>       running_               {false};    // 采集、守护线程共用启停标记，true允许线程循环运行，false通知线程退出
+    std::atomic<int64_t>    last_frame_tick_ms_    {0};        // 采集线程心跳
+
+    std::condition_variable queue_cv_;                         // 用于 getImage() 阻塞等待队列非空(信号灯)
+    std::queue<CameraFrame> frame_queue_;
+
+    std::chrono::steady_clock::time_point last_reconnect_attempt_{};  //上一次重连的时间
+    std::chrono::steady_clock::time_point wedge_since_           {};
+    std::chrono::steady_clock::time_point last_wedge_log_time_   {};  
+
+    cv::Mat output_pool[kPoolCount];
+
+};
+} // namespace hikcamera
+
+#endif // _HIKCAMERA_H_

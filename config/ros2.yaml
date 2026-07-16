@@ -1,0 +1,5 @@
+ros2:
+  enabled: true
+  server_ip: "127.0.0.1"     # Docker 的 IP (host 模式就是 127.0.0.1)
+  server_port: 8888          # Docker 节点监听的端口
+  local_port: 8889           # 宿主机绑定的端口

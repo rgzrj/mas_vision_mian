@@ -1,0 +1,17 @@
+1.新增采集线程和守护线程，防止发生读写冲突
+2.重构了一遍重连模块，后台检测掉线自动运行，采用时间锁与有界 try_lock_for，防止MV_CC_GetImageBuffer因拔掉相机而陷入阻塞，一直持有锁
+3.queue_cv_充当信号站
+4.将重连内容分配到hikcamera_reconnect_thread.cpp
+5.更严明的销毁机制
+6.小池化，避免直接返回Mat类型的图像。
+    原因：每次创建会重新分配和销毁内存，而小池化提前申请5块空间，不断复用
+7.对usb相机还有海康相机进行虚式类的统一，以便未来新增新款相机
+8.新增海康相机断线异步回调
+
+改进目标：
+    1.有些无用的内容没有删干净
+    2.usb相机需要重写一下，因为队里不咋用usb相机，所以目前usb代码还是比较单一的(不急)
+    3.注释删一下有点丑，海康相机代码迁移一下，hardware\hikcamera\hikcamera.cpp内部代码有点太多了
+    4.Next step: rebuild and redeploy the three files from last turn, then recapture a similar window. You should see the message format change to the "N consecutive poll(s)" wording, and the frequency drop sharply (ideally to near-zero, since most of these episodes were 1-2 poll blips that no longer clear the 3-miss debounce, and any that do will be throttled to one print per 2s). If it's still flooding after confirming the new binary is actually running, paste the new-format log and I'll take another look.
+    5.将hpp文件中的常量转化为yaml相机内部的常量，
+    6.多辆相机同时连接minipc，选择相机的序列号

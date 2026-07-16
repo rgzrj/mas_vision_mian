@@ -1,0 +1,10 @@
+usbcamera:
+  enable: false          # 是否启用 USB 相机
+  device_path: /dev/video0  # USB 相机设备路径
+  width: 1280           # 图像宽度
+  height: 720            # 图像高度
+  fps: 30               # 帧率 
+  auto_exposure: 1       # 自动曝光模式 (0=自动曝光, 1=手动曝光)
+  exposure: 50            # 曝光时间 (仅在手动曝光模式下有效)
+  gain: 20              # 增益 (仅在手动曝光模式下有效)
+  auto_wb: 0            # 自动白平衡 (0=禁用, 1=启用)

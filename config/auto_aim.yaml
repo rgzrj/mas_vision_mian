@@ -1,0 +1,45 @@
+auto_aim:
+  armor_detector:
+    debug: false
+    binary_thres: 90
+    detect_color: RED
+    lights_params:
+      min_lightbar_ratio: 1.5 # 有效灯条长宽比（min）
+      max_lightbar_ratio: 20 # 有效灯条长宽比（max）
+      min_lightbar_length: 8 # 灯条长度（min）
+      max_angle_error: 45 # 角度误差（max）单位：度
+      max_lightbar_area: 30000 # 灯条最大面积（max）
+    armors_params:
+      min_armor_ratio: 1 # 装甲板长宽比（min）
+      max_armor_ratio: 5 # 装甲板长宽比（max）
+      max_side_ratio: 1.5 # 侧边长宽比（max）
+      max_rectangular_error: 25 # 角度误差（max）单位：度
+    number_params:
+      model_path: ../auto_aim/armor_detector/model/lenet.onnx
+      label_path: ../auto_aim/armor_detector/model/label.txt
+      classifier_threshold: 0.7
+      ignore_classes: ["negative"]
+  armor_track :
+    armor_pose_debug: false
+    armor_track_debug: false
+    min_detect_count: 5
+    max_temp_lost_count: 25
+    outpost_max_temp_lost_count: 75
+  armor_shoot:
+    debug: true
+    plotter_enable: true      # 是否启用 plotter 输出
+    yaw_offset: 0.5           # 单位：度
+    pitch_offset: 1.0         # 单位：度
+    bullet_speed: 24.0        # 子弹初速度，单位：m/s
+    gravity: 9.8              # 重力加速度，单位：m/s^2
+    resistance: 0.0           # 空气阻力系数
+    hero_mode: false          # 英雄模式开关 
+    spinning_threshold_low: 2.0   # 低转速阈值，低于此直接跟板
+    spinning_threshold_high: 10.0 # 高转速阈值，高于此强制使用 hero_mode 逻辑
+    comming_angle: 60.0       # 小陀螺来向角阈值，单位：度
+    leaving_angle: 30.0       # 小陀螺去向角阈值，单位：度
+    fire_delay_time: 0.002     # 统一发弹延迟，单位：s
+    yaw_tolerance_near: 2.0   # yaw射击容差（距离<3m），单位：度
+    yaw_tolerance_far: 1.0    # yaw射击容差（距离>=3m），单位：度
+    pitch_tolerance_near: 2.0 # pitch射击容差（距离<3m），单位：度
+    pitch_tolerance_far: 1.0  # pitch射击容差（距离>=3m），单位：度

@@ -1,0 +1,10 @@
+serial:
+  debug: false
+  port: "/dev/mascdc"
+  baudrate: 115200
+  timeout: 2
+  bytesize: 8
+  parity: "none"
+  stopbits: 1
+  flowcontrol: "none"
+  timestamp_offset: 0.0
