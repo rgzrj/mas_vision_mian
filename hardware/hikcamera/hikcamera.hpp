@@ -65,15 +65,16 @@ class HikCamera
     char              serialNumber[64];                 // 设备序列号
     std::string       target_serial_;                   // 期望连接的设备序列号（空串表示不指定）
 
-    bool  sdk_initialized_         = false;             // 全局 SDK 初始化状态标志
-    bool  wedge_detected_          = false;             // 锁卡死标志位，防止相机阻塞使锁长时间被占用  
-    bool  was_connected_           = true;
-    bool  was_stalled_             = false;
+    bool  sdk_initialized_          = false;             // 全局 SDK 初始化状态标志
+    bool  wedge_detected_           = false;             // 锁卡死标志位，防止相机阻塞使锁长时间被占用  
+    bool  was_connected_            = true;
+    bool  was_stalled_              = false;
 
-    int   fail_count_              = 0;                 // 保留字段：兼容旧接口，新重连判定不再依赖它
-    int   consecutive_sdk_errors_  = 0;                 // 相机启动连续错误计数器
-    int   pool_index               = 0;
-    int   reconnect_backoff_ms_    = kInitialBackoffMs; // 当前需要等待的退避间隔
+    int   fail_count_               = 0;                 // 保留字段：兼容旧接口，新重连判定不再依赖它
+    int   consecutive_sdk_errors_   = 0;                 // 相机启动连续错误计数器
+    int   pool_index                = 0;
+    int   wedge_consecutive_misses_ = 0;                 // 连续抢不到锁的次数（去抖计数器）
+    int   reconnect_backoff_ms_     = kInitialBackoffMs; // 当前需要等待的退避间隔
 
     float exposure_time_;                               // 曝光时间
     float gain_;                                        // 增益
@@ -113,7 +114,9 @@ class HikCamera
 
     std::chrono::steady_clock::time_point last_reconnect_attempt_{};  //上一次重连的时间
     std::chrono::steady_clock::time_point wedge_since_           {};
-    std::chrono::steady_clock::time_point last_wedge_log_time_   {};  
+    std::chrono::steady_clock::time_point last_wedge_log_time_   {};
+    std::chrono::steady_clock::time_point last_fail_log_time_    {};  // 上一次打印"重连失败"日志的时间，
+  
 
     cv::Mat output_pool[kPoolCount];
 
