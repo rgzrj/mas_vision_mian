@@ -658,4 +658,3 @@ bool hikcamera::HikCamera::PrintDeviceInfo(MV_CC_DEVICE_INFO *pstMVDevInfo)
 
     return true;
 }
-

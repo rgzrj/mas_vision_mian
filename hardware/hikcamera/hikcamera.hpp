@@ -17,7 +17,7 @@
 
 namespace hikcamera
 {
-class HikCamera
+class HikCamera : public Base_Camera
 {
   public:
     HikCamera(const std::string &config_path = "config/hikcamera.yaml");
@@ -29,17 +29,17 @@ class HikCamera
 
     // 首次调用会顺带启动内部的采集/守护线程（无论本次连接是否成功），
     // 之后即便暂时找不到设备，守护线程也会持续按退避策略自动重试。
-    bool openCamera();
-    void closeCamera();
+    bool openCamera() override;
+    void closeCamera() override;
 
     /**
      * @brief 从内部帧队列中取出一帧图像（阻塞直至有数据或超时 kQueueWaitMs 毫秒）
      * @return CameraFrame，若超时仍无数据则返回空对象。
      */
-    CameraFrame getImage();
+    CameraFrame getImage() override;
 
     // 获取连接状态（无锁读取，供外部轮询展示用）
-    bool isConnectedStatus() const { return isConnected.load(std::memory_order_relaxed); }
+    bool isConnectedStatus() const override { return isConnected.load(std::memory_order_relaxed); }
 
   private:
     cv::Mat processFrame(MV_FRAME_OUT *pstFrame);

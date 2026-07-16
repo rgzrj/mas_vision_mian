@@ -12,7 +12,8 @@ namespace threads
 void camera_thread_func(const std::string &config_path, size_t buffer_size, std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> buffer)
 {
     // 相机初始化
-    hikcamera::HikCamera cam(config_path);
+    hikcamera::HikCamera hik_camera(config_path);
+    Base_Camera          &cam = hik_camera;
 
     // 尝试打开相机
     if (!cam.openCamera())

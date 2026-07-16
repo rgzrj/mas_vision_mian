@@ -3,6 +3,8 @@
 #include "usbcamera.hpp"
 #include "usbcamera_config.hpp"
 
+#include <memory>
+
 namespace threads
 {
 
@@ -18,8 +20,8 @@ void usb_camera_thread_func(size_t                                           buf
 
     MAS_LOG_INFO("USB camera thread initializing with device: {}", device_path.c_str());
 
-    auto cam = std::make_shared<usbcamera::UsbCamera>(device_path);
-    if (!cam->open())
+    std::unique_ptr<Base_Camera> cam = std::make_unique<usbcamera::UsbCamera>(device_path);
+    if (!cam->openCamera())
     {
         MAS_LOG_ERROR("Could not open USB camera: {}", device_path.c_str());
         return;
@@ -29,18 +31,18 @@ void usb_camera_thread_func(size_t                                           buf
 
     while (!g_shutdown)
     {
-        CameraFrame data = cam->captureImage();
+        CameraFrame data = cam->getImage();
         if (!data.frame.empty())
         {
             if (buffer)
             {
-                bool success = buffer->try_push(std::move(data));
+                (void)buffer->try_push(std::move(data));
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    cam->close();
+    cam->closeCamera();
     MAS_LOG_INFO("USB camera processing thread exited");
 }
 

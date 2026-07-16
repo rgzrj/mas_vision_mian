@@ -11,7 +11,7 @@ namespace usbcamera
 /**
  * @brief USB相机类
  */
-class UsbCamera
+class UsbCamera : public Base_Camera
 {
   public:
     /**
@@ -20,18 +20,18 @@ class UsbCamera
      */
     explicit UsbCamera(const std::string &device_path);
 
-    ~UsbCamera();
+    ~UsbCamera() override;
 
-    bool open();
+    bool openCamera() override;
 
-    void close();
+    void closeCamera() override;
 
-    bool isOpened() const
+    bool isConnectedStatus() const override
     {
         return opened_ && cap_.isOpened();
     };
 
-    CameraFrame captureImage();
+    CameraFrame getImage() override;
 
     /**
      * @brief 获取相机设备路径

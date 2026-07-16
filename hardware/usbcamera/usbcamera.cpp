@@ -12,10 +12,10 @@ UsbCamera::UsbCamera(const std::string &device_path) : device_path_(device_path)
 
 UsbCamera::~UsbCamera()
 {
-    close();
+    closeCamera();
 }
 
-bool UsbCamera::open()
+bool UsbCamera::openCamera()
 {
     if (opened_)
     {
@@ -29,6 +29,8 @@ bool UsbCamera::open()
 
         if (!cap_.isOpened())
         {
+            MAS_LOG_ERROR("Could not open USB camera. Path: {}",
+                            device_path_.c_str());
             return false;
         }
 
@@ -47,20 +49,17 @@ bool UsbCamera::open()
 
             return true;
         }
-        else
-        {
-            MAS_LOG_ERROR("Could not open USB camera. Path: {}", device_path_.c_str());
-            return false;
-        }
     }
     catch (const std::exception &e)
     {
         MAS_LOG_ERROR("Exception opening USB camera: {}", e.what());
         return false;
     }
+
+    return false;
 }
 
-void UsbCamera::close()
+void UsbCamera::closeCamera()
 {
     if (cap_.isOpened())
     {
@@ -73,7 +72,7 @@ void UsbCamera::close()
 bool UsbCamera::applyConfig(int width, int height, int fps, int auto_exposure, int exposure,
                             int gain, int auto_wb)
 {
-    if (!isOpened())
+    if (!isConnectedStatus())
     {
         MAS_LOG_WARN("Cannot apply config when camera is not opened");
         return false;
@@ -92,11 +91,11 @@ bool UsbCamera::applyConfig(int width, int height, int fps, int auto_exposure, i
     return success;
 }
 
-CameraFrame UsbCamera::captureImage()
+CameraFrame UsbCamera::getImage()
 {
-    if (!isOpened())
+    if (!isConnectedStatus())
     {
-        MAS_LOG_WARN("Cannot capture image when camera is not opened");
+        MAS_LOG_WARN("Cannot capture image when camera is not connected");
         return CameraFrame{};
     }
 
