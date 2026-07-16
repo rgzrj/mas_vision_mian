@@ -1,5 +1,5 @@
 add_library(threads STATIC
-    camera_thread/camera_thread.cpp
+    hikcamera_thread/hikcamera_thread.cpp
     serial_thread/serial_thread.cpp
     usbcamera_thread/usbcamera_thread.cpp
     armor_thread/armor_thread.cpp
@@ -8,7 +8,7 @@ add_library(threads STATIC
 
 # 设置库的包含目录
 target_include_directories(threads PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/camera_thread
+    ${CMAKE_CURRENT_SOURCE_DIR}/hikcamera_thread
     ${CMAKE_CURRENT_SOURCE_DIR}/serial_thread
     ${CMAKE_CURRENT_SOURCE_DIR}/usbcamera_thread
     ${CMAKE_CURRENT_SOURCE_DIR}/armor_thread

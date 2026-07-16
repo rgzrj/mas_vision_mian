@@ -10,7 +10,7 @@
 #include "mas_log.hpp"
 
 #include "armor_thread.hpp"
-#include "camera_thread.hpp"
+#include "hikcamera_thread.hpp"
 #include "serial_thread.hpp"
 #include "usbcamera_config.hpp"
 #include "usbcamera_thread.hpp"
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
         // 启动相机线程
         auto camera_future = pool.submit_task(
-            [camera_buffer_size, camera_buffer]() { threads::camera_thread_func("config/hikcamera.yaml", camera_buffer_size, camera_buffer); });
+            [camera_buffer_size, camera_buffer]() { threads::hikcamera_thread_func("config/hikcamera.yaml", camera_buffer_size, camera_buffer); });
 
         // 启动USB相机线程
         std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> usb_buffer;
