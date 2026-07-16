@@ -328,29 +328,33 @@ void hikcamera::HikCamera::closeCamera()
         return;
     }
 
-    auto t_close_start = std::chrono::steady_clock::now();
-
-    if (isConnected)
+    if (handle != NULL)
     {
-        int nRetStop  = MV_CC_StopGrabbing(handle);
-        int nRetClose = MV_CC_CloseDevice(handle);
-        if (nRetStop != MV_OK)
-        {
-            MAS_LOG_WARN("closeCamera: StopGrabbing fail! nRet 0x{0:x}", nRetStop);
-        }
-        if (nRetClose != MV_OK)
-        {
-            MAS_LOG_WARN("closeCamera: CloseDevice fail! nRet 0x{0:x}", nRetClose);
-        }
-        isConnected = false;
-    }
-    MV_CC_DestroyHandle(handle);
-    handle = NULL;
 
-    auto close_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - t_close_start)
-                        .count();
-    MAS_LOG_INFO("closeCamera: teardown took {} ms", close_ms);
+        auto t_close_start = std::chrono::steady_clock::now();
+
+        if (isConnected)
+        {
+            int nRetStop  = MV_CC_StopGrabbing(handle);
+            int nRetClose = MV_CC_CloseDevice(handle);
+            if (nRetStop != MV_OK)
+            {
+                MAS_LOG_WARN("closeCamera: StopGrabbing fail! nRet 0x{0:x}", nRetStop);
+            }
+            if (nRetClose != MV_OK)
+            {
+                MAS_LOG_WARN("closeCamera: CloseDevice fail! nRet 0x{0:x}", nRetClose);
+            }
+            isConnected = false;
+        }
+        MV_CC_DestroyHandle(handle);
+        handle = NULL;
+
+        auto close_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - t_close_start)
+                                .count();
+        MAS_LOG_INFO("closeCamera: teardown took {} ms", close_ms);
+    }
 }
 
 void hikcamera::HikCamera::startThreads()
@@ -591,7 +595,7 @@ void hikcamera::HikCamera::ExceptionCallBack(unsigned int nMsgType, void *pUser)
         MAS_LOG_WARN("HikCamera: SDK exception callback reports device disconnect (0x{0:x}); "
                      "marking as disconnected so daemonLoop reconnects on its next poll",
                      nMsgType);
-        self->isConnected.store(false, std::memory_order_relaxed);
+        self->markDisconnected(std::chrono::steady_clock::now());
     }
     else
     {
