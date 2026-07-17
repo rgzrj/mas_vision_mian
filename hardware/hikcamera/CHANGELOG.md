@@ -8,10 +8,13 @@
 7.对usb相机还有海康相机进行虚式类的统一，以便未来新增新款相机
 8.新增海康相机断线异步回调
 
+
 改进目标：
     1.有些无用的内容没有删干净
     2.usb相机需要重写一下，因为队里不咋用usb相机，所以目前usb代码还是比较单一的(不急)
     3.注释删一下有点丑，海康相机代码迁移一下，hardware\hikcamera\hikcamera.cpp内部代码有点太多了
-    4.Next step: rebuild and redeploy the three files from last turn, then recapture a similar window. You should see the message format change to the "N consecutive poll(s)" wording, and the frequency drop sharply (ideally to near-zero, since most of these episodes were 1-2 poll blips that no longer clear the 3-miss debounce, and any that do will be throttled to one print per 2s). If it's still flooding after confirming the new binary is actually running, paste the new-format log and I'll take another look.
     5.将hpp文件中的常量转化为yaml相机内部的常量，
     6.多辆相机同时连接minipc，选择相机的序列号
+    7.相机拍摄的时间戳应与IMU的时间戳对齐，获取同一时刻的图像和陀螺仪位姿信息，借助EKF来预测
+    8.相机占据三线程，有点多，可以优化优化
+    9.新增RAll代替goto语句，https://blog.csdn.net/weixin_45031801/article/details/142737361(待定)
