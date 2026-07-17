@@ -8,7 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 
-#include "camera_thread.hpp"
+#include "hikcamera_thread.hpp"
 #include "display.hpp"
 #include "mas_log.hpp"
 #include "math_tools.hpp"
@@ -115,7 +115,7 @@ int calibrate_handeye_main()
 
     // 启动相机线程
     auto camera_future = pool.submit_task(
-        [camera_buffer_size, camera_buffer]() { threads::camera_thread_func(CAMERA_CONFIG_PATH, camera_buffer_size, camera_buffer); });
+        [camera_buffer_size, camera_buffer]() { threads::hikcamera_thread_func(CAMERA_CONFIG_PATH, camera_buffer_size, camera_buffer); });
 
     // 启动串口线程
     auto serial_future = pool.submit_task([]() { threads::serial_thread_func(); });

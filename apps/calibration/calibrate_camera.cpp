@@ -7,7 +7,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "SPSCQueue.h"
-#include "camera_thread.hpp"
+#include "hikcamera_thread.hpp"
 #include "display.hpp"
 #include "mas_log.hpp"
 
@@ -83,8 +83,8 @@ int calibrate_camera_main()
     display.set_event_callback(sdl_event_callback, &calib_state);
 
     // 启动相机线程
-    auto camera_future =
-        pool.submit_task([camera_buffer_size, camera_buffer]() { threads::camera_thread_func(CONFIG_PATH, camera_buffer_size, camera_buffer); });
+    auto camera_future = pool.submit_task(
+        [camera_buffer_size, camera_buffer]() { threads::hikcamera_thread_func(CONFIG_PATH, camera_buffer_size, camera_buffer); });
 
     // 标定数据存储
     cv::Size                              img_size;
