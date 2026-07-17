@@ -39,7 +39,7 @@ class MasLog
      * @brief 获取全局 logger 实例
      * @return std::shared_ptr<spdlog::logger>
      */
-    static std::shared_ptr<spdlog::logger> get_logger()
+    static std::shared_ptr<spdlog::logger> &get_logger()
     {
         return logger_;
     }

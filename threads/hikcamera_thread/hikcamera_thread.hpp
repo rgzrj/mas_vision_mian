@@ -11,7 +11,7 @@ extern std::atomic<bool> g_shutdown;
 namespace threads
 {
 /**
- * @brief 相机处理线程入口函数
+ * @brief 海康威视相机处理线程入口函数
  * @param config_path 相机配置文件路径
  * @param buffer_size SPSCQueue大小
  * @param buffer SPSCQueue指针

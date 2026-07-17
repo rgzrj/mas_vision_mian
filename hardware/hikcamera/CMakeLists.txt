@@ -1,7 +1,9 @@
 # 创建静态库
 add_library(hikcamera STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/hikcamera.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hikcamera_reconnect_thread.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hikcamera_reconnect.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hikcamera_capture.cpp
+
 )
 
 find_package(OpenCV REQUIRED)

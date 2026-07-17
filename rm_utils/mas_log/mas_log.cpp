@@ -13,7 +13,7 @@
 namespace rm_utils
 {
 
-std::shared_ptr<spdlog::logger> MasLog::logger_ = nullptr;
+std::shared_ptr<spdlog::logger> MasLog::logger_ = spdlog::default_logger(); // 初始化为默认 logger，防止未初始化时使用
 
 void MasLog::init(const std::string &log_path, spdlog::level::level_enum filelevel,
                   spdlog::level::level_enum consolelevel)
