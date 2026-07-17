@@ -48,6 +48,6 @@ class MasLog
     static std::shared_ptr<spdlog::logger> logger_;
 };
 
-} // namespace rm_utils
+}  // namespace rm_utils
 
 #endif // _MAS_LOG_H_
