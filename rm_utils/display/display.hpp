@@ -63,7 +63,7 @@ struct SDLContext
 {
     SDL_Window                         *window   = nullptr;
     SDL_Renderer                       *renderer = nullptr;
-    SDL_Texture                        *texture  = nullptr;
+    SDL_Texture                        *texture  = nullptr; // 存储图像原图
     std::unordered_map<int, TTF_Font *> fonts; // 按字号缓存字体
     int                                 width  = 0;
     int                                 height = 0;
