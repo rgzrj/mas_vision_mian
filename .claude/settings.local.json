@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(ipconfig /all)",
-      "Bash(mkdir -p \"d:/vs/vscode/c++/大型工程/mas_vision-main/心得体会\")"
+      "Bash(mkdir -p \"d:/vs/vscode/c++/大型工程/mas_vision-main/心得体会\")",
+      "Bash(git remote *)"
     ],
     "additionalDirectories": [
       "d:\\vs\\vscode\\c++\\大型工程\\mas_vision-main"
