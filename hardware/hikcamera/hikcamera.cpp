@@ -296,7 +296,6 @@ bool hikcamera::HikCamera::openCamera()
 
     // 启动内部采集/守护线程；若已在运行则为 no-op
     startThreads();
-
     return true;
 
     clean_device:
@@ -308,7 +307,6 @@ bool hikcamera::HikCamera::openCamera()
         isConnected = false;
 
     startThreads();
-
     return false;
 }
 

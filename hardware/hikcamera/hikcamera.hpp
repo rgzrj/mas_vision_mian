@@ -90,7 +90,7 @@ class HikCamera : public Base_Camera
     static constexpr int    kWedgeEscalateMs         = 10000; // daemonLoop     日志升级等待时长
     static constexpr int    kWedgeLogDebounceMisses  = 3;     // daemonLoop     抢锁失败日志触发阈值
     static constexpr int    kWedgeLogThrottleMs      = 2000;  // daemonLoop     抢锁失败日志节流间隔  
-    static constexpr size_t kQueueCapacity           = 4;     // pushFrame      帧队列容量，超出丢弃最旧帧
+    static constexpr size_t kQueueCapacity           = 2;     // pushFrame      帧队列容量，超出丢弃最旧帧
     static constexpr int    kQueueWaitMs             = 100;   // getImage       等待队列的超时时间
     static constexpr int    kCloseTeardownWarnMs     = 150;   // closeCamera    相机关闭耗时警告阈值
     static constexpr int    kGetImageBufferTimeoutMs = 20;    // GetImageBuffer 单次调用的 SDK 内部超时
