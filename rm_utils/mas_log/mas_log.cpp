@@ -61,7 +61,6 @@ void MasLog::init(const std::string &log_path, spdlog::level::level_enum filelev
         // 格式优化: [时间] [等级] [文件:行号] 内容
         logger_->set_pattern("[%H:%M:%S.%e] [%^%l%$] [%s:%#] %v");
         // 刷新策略：每隔3秒自动刷新，或遇到 warn 级别立即刷新
-        spdlog::flush_every(std::chrono::seconds(3));
         logger_->flush_on(spdlog::level::warn);
         // 注册为全局默认 logger
         spdlog::set_default_logger(logger_);
