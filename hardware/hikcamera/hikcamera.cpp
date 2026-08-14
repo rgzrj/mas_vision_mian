@@ -356,21 +356,19 @@ void hikcamera::HikCamera::closeCamera()
     {
 
         auto t_close_start = std::chrono::steady_clock::now();
+        int nRetStop       = MV_CC_StopGrabbing(handle);
+        int nRetClose      = MV_CC_CloseDevice(handle);
 
-        if (isConnected)
+        if (nRetStop != MV_OK)
         {
-            int nRetStop  = MV_CC_StopGrabbing(handle);
-            int nRetClose = MV_CC_CloseDevice(handle);
-            if (nRetStop != MV_OK)
-            {
-                MAS_LOG_WARN("closeCamera: StopGrabbing fail! nRet 0x{0:x}", nRetStop);
-            }
-            if (nRetClose != MV_OK)
-            {
-                MAS_LOG_WARN("closeCamera: CloseDevice fail! nRet 0x{0:x}", nRetClose);
-            }
-            isConnected = false;
+            MAS_LOG_WARN("closeCamera: StopGrabbing fail! nRet 0x{0:x}", nRetStop);
         }
+        if (nRetClose != MV_OK)
+        {
+            MAS_LOG_WARN("closeCamera: CloseDevice fail! nRet 0x{0:x}", nRetClose);
+        }
+        isConnected = false;
+
         MV_CC_DestroyHandle(handle);
         handle = NULL;
 
