@@ -51,7 +51,15 @@ std::optional<Target> ArmorTrack::track(std::vector<Armor> &armors, std::chrono:
                                         cv::Mat bgr_img) noexcept
 {
     // 计算时间间隔
-    auto dt         = rm_utils::delta_time(t, last_timestamp_);
+    auto dt = rm_utils::delta_time(t, last_timestamp_);
+
+    // 预防时间间隔为负或零的情况，可能是时间戳异常或系统时钟调整
+    if (dt <= 0.0)
+    {
+        if ((state_ == "tracking" || state_ == "temp_lost") && target_.has_value()) return target_;
+        return std::nullopt;
+    }
+
     last_timestamp_ = t;
 
     // 时间间隔过长，说明可能发生了相机离线，重置状态
@@ -287,13 +295,14 @@ bool ArmorTrack::update_target(std::vector<Armor> &armors, std::chrono::steady_c
 
     if (found_count == 0) return false;
 
-    // 对匹配的装甲板进行位姿解算并更新
+    // 防止在 armors 旋转时出现多块装甲板，检测一块接近的装甲板即可 
     for (auto &armor : armors)
     {
         if (armor.number != target_->name || armor.type != target_->armor_type) continue;
 
         armor_pose_.GetArmorPose(armor);
         target_->update(armor);
+        break;
     }
 
     return true;
