@@ -61,6 +61,7 @@ double ArmorShoot::continuousYaw(const Eigen::Vector3d &xyz, double gimbal_yaw)
 {
     const double yaw_raw = std::atan2(xyz.y(), xyz.x()) + yaw_offset_;
 
+    // 首次调用或 yaw 跳变过大时，会出现云台割裂性跳变，重置 gimbal_yaw 的同时云台的割裂性旋转(待修)
     if (!has_yaw_ || std::abs(last_target_yaw_ - gimbal_yaw) > 3.0)
     {
         last_target_yaw_ = gimbal_yaw;
@@ -85,18 +86,25 @@ SendPacket ArmorShoot::holdPacket(double gimbal_yaw, double gimbal_pitch) const
 }
 
 SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp,
-                             const Eigen::Matrix3d &R_gimbal2world, const cv::Mat &bgr_img, const std::string &window_name)
+                              const Eigen::Matrix3d &R_gimbal2world, const cv::Mat &bgr_img, const std::string &window_name,
+                              int64_t quaternion_age_ms)
 {
     // 从旋转矩阵提取云台欧拉角（yaw, pitch）
     Eigen::Vector3d gimbal_euler = rm_utils::eulers(R_gimbal2world, 2, 1, 0);
     double          gimbal_yaw   = gimbal_euler[0];
     double          gimbal_pitch = gimbal_euler[1];
 
-    // 无目标情况处理
     if (!target.has_value())
     {
         if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, 0.0f, 0.0f, 0, bgr_img, window_name);
-        return {};
+        const SendPacket packet{};
+        
+        if (plotter_enable_)
+        {
+            plotDiagnostics("no_target", target, {false, Eigen::Vector4d::Zero(), false, false, -1, AimMode::TRACK}, packet,
+                            gimbal_euler, quaternion_age_ms, 0.0, false);
+        }
+        return packet;
     }
 
     auto ekf_x = target->ekf_x();
@@ -118,7 +126,12 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
     {
         // 连瞄准点都选不出来，yaw 无从更新，全部沿用上一次
         const SendPacket hold = holdPacket(gimbal_yaw, gimbal_pitch);
-        if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch,
+                                            hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (plotter_enable_)
+        {
+            plotDiagnostics("aim_point_invalid", target, aim_point, hold, gimbal_euler, quaternion_age_ms, process_delay * 1000.0, false);
+        }   
         return hold;
     }
 
@@ -133,7 +146,13 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
         continuousYaw(xyz0, gimbal_yaw);
         debug_aim_point.valid = false;
         const SendPacket hold = holdPacket(gimbal_yaw, gimbal_pitch);
-        if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch,
+                         hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (plotter_enable_)
+        {
+            plotDiagnostics("initial_trajectory_unsolvable", target, aim_point, hold, gimbal_euler, quaternion_age_ms,
+                            process_delay * 1000.0, false);
+        }
         return hold;
     }
 
@@ -156,7 +175,13 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
         {
             // 迭代中选不出瞄准点，同上：yaw 无从更新，全部沿用
             const SendPacket hold = holdPacket(gimbal_yaw, gimbal_pitch);
-            if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+            if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, 
+                                    hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+            if (plotter_enable_)
+            {
+                plotDiagnostics("iteration_aim_invalid", target, aim_point_iter, hold, gimbal_euler, quaternion_age_ms,
+                                process_delay * 1000.0, false);
+            }
             return hold;
         }
 
@@ -173,7 +198,13 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
             continuousYaw(xyz, gimbal_yaw);
             debug_aim_point.valid = false;
             const SendPacket hold = holdPacket(gimbal_yaw, gimbal_pitch);
-            if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch, hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+            if (debug_) showDebug(target, {false, {}}, gimbal_yaw, gimbal_pitch,
+                                     hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+            if (plotter_enable_)
+            {
+                plotDiagnostics("iteration_trajectory_unsolvable", target, aim_point_iter, hold, gimbal_euler, quaternion_age_ms,
+                                process_delay * 1000.0, false);
+            }
             return hold;
         }
 
@@ -195,7 +226,13 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
     {
         // yaw 已经跟上了，pitch 冻结在上一次有效值
         const SendPacket hold = holdPacket(gimbal_yaw, gimbal_pitch);
-        if (debug_) showDebug(target, debug_aim_point, gimbal_yaw, gimbal_pitch, hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (debug_) showDebug(target, debug_aim_point, gimbal_yaw, gimbal_pitch,
+                                 hold.target_yaw, hold.target_pitch, 0, bgr_img, window_name);
+        if (plotter_enable_)
+        {
+            plotDiagnostics("final_trajectory_unsolvable", target, debug_aim_point, hold, gimbal_euler, quaternion_age_ms,
+                            process_delay * 1000.0, converged);
+        }
         return hold;
     }
     const double pitch = -(final_trajectory.pitch + pitch_offset_);
@@ -218,32 +255,6 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
         if (yaw_ok && pitch_ok) fire = 1;
     }
 
-    // Plotter 输出
-    if (plotter_enable_ && plotter_)
-    {
-        nlohmann::json data;
-
-        // SendPacket 数据
-        data["send_packet"]["found"]        = 1;
-        data["send_packet"]["fire_advice"]  = fire;
-        data["send_packet"]["target_yaw"]   = yaw * 57.3f;   // 转换为度
-        data["send_packet"]["target_pitch"] = pitch * 57.3f; // 转换为度
-
-        // 当前云台姿态（yaw, pitch, roll）
-        data["gimbal"]["yaw"]   = gimbal_yaw * 57.3;      // 转换为度
-        data["gimbal"]["pitch"] = gimbal_pitch * 57.3;    // 转换为度
-        data["gimbal"]["roll"]  = gimbal_euler[2] * 57.3; // 转换为度
-
-        // 距离信息
-        data["distance"] = dist;
-        // aim point
-        data["aim_point"]["x"] = final_xyz.x();
-        data["aim_point"]["y"] = final_xyz.y();
-        data["aim_point"]["z"] = final_xyz.z();
-
-        plotter_->plot(data);
-    }
-
     if (debug_)
     {
         showDebug(target, debug_aim_point, gimbal_yaw, gimbal_pitch, yaw, pitch, fire, bgr_img, window_name);
@@ -255,7 +266,44 @@ SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::s
     result.target_yaw   = yaw;
     result.target_pitch = pitch;
     result.fire_advice  = fire;
+    if(plotter_enable_)
+    {
+        plotDiagnostics("ok", target, debug_aim_point, result, gimbal_euler, 
+                            quaternion_age_ms, process_delay * 1000.0, converged);
+    }
     return result;
+}
+
+void ArmorShoot::plotDiagnostics(const char *status, const std::optional<Target> &target, const AimPoint &aim_point,
+                                 const SendPacket &packet, const Eigen::Vector3d &gimbal_euler, int64_t quaternion_age_ms,
+                                 double process_delay_ms, bool iteration_converged) const
+{
+    if (!plotter_enable_ || !plotter_) return;
+
+    Eigen::Vector3d xyz = Eigen::Vector3d::Zero();
+    if (aim_point.valid) xyz = aim_point.xyza.head<3>();
+    nlohmann::json data;
+    data["shoot"]["status"]                   = status;
+    data["shoot"]["target_valid"]             = target.has_value();
+    data["shoot"]["process_delay_ms"]         = process_delay_ms;
+    data["shoot"]["iteration_converged"]      = iteration_converged;
+    data["send_packet"]["found"]              = packet.found;
+    data["send_packet"]["fire_advice"]        = packet.fire_advice;
+    data["send_packet"]["target_yaw"]         = packet.target_yaw * 57.3;
+    data["send_packet"]["target_pitch"]       = packet.target_pitch * 57.3;
+    data["gimbal"]["yaw"]                     = gimbal_euler[0] * 57.3;
+    data["gimbal"]["pitch"]                   = gimbal_euler[1] * 57.3;
+    data["gimbal"]["roll"]                    = gimbal_euler[2] * 57.3;
+    data["serial"]["quaternion_age_ms"]       = quaternion_age_ms;
+    data["distance"]                          = xyz.head<2>().norm();
+    data["aim_point"]["valid"]                = aim_point.valid;
+    data["aim_point"]["x"]                    = xyz.x();
+    data["aim_point"]["y"]                    = xyz.y();
+    data["aim_point"]["z"]                    = xyz.z();
+    data["aim"]["mode"]                       = static_cast<int>(aim_point.mode);
+    data["aim"]["armor_id"]                   = aim_point.armor_id;
+
+    plotter_->plot(data);
 }
 
 AimPoint ArmorShoot::chooseAimPoint(const Target &target)
@@ -283,12 +331,6 @@ AimPoint ArmorShoot::chooseAimPoint(const Target &target)
     // 默认打击装甲板：列表中的第一个装甲板
     int             default_id    = 0;
     Eigen::Vector4d default_point = armors[0];
-
-    // 初始状态或未跳变：直接打击默认装甲板
-    if (!target.jumped)
-    {
-        return {true, default_point, false, true, default_id, AimMode::TRACK};
-    }
 
     // 预计算所有装甲板相对中心的夹角
     std::vector<double> delta_angles;

@@ -7,6 +7,7 @@
 #include "trajectory.hpp"
 #include <Eigen/Dense>
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -54,10 +55,11 @@ class ArmorShoot
      * @param R_gimbal2world 云台到世界坐标系的旋转矩阵
      * @param bgr_img BGR 图像（用于调试显示）
      * @param window_name 调试窗口名称
+     * @param quaternion_age_ms 最近一次串口姿态的主机接收年龄
      * @return SendPacket 包含开火建议和角度的数据包
      */
     SendPacket shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp, const Eigen::Matrix3d &R_gimbal2world,
-                     const cv::Mat &bgr_img = cv::Mat(), const std::string &window_name = "");
+                     const cv::Mat &bgr_img = cv::Mat(), const std::string &window_name = "", int64_t quaternion_age_ms = -1);
 
     AimPoint debug_aim_point; ///< 调试用的瞄准点信息
 
@@ -83,6 +85,10 @@ class ArmorShoot
      *          found=1（确实识别到了）、fire_advice=0（不开火）。
      */
     SendPacket holdPacket(double gimbal_yaw, double gimbal_pitch) const;
+
+    void plotDiagnostics(const char *status, const std::optional<Target> &target, const AimPoint &aim_point,
+                         const SendPacket &packet, const Eigen::Vector3d &gimbal_euler, int64_t quaternion_age_ms,
+                         double process_delay_ms, bool iteration_converged) const;
 
     void showDebug(const std::optional<Target> &target, const AimPoint &aim_point, double gimbal_yaw, double gimbal_pitch, float target_yaw,
                    float target_pitch, uint8_t fire, const cv::Mat &bgr_img, const std::string &window_name) const noexcept;
