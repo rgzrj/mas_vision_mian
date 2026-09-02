@@ -1,5 +1,11 @@
 # `rune_sine_fitter` 数学公式与代码对应说明
 
+> **生成时间**：2026-08-25（UTC+8）
+
+> **代码位置**：`rm_utils\algorithm\rune_sine_fitter.cpp` / `rm_utils\algorithm\rune_sine_fitter.hpp`
+
+> **命名空间**：`rm_utils`
+
 `rune_sine_fitter` 用于估计大能量机关的单变量周期轨迹。算法分为两层：
 
 1. 外层在有限的角频率区间中枚举候选 $\omega$。

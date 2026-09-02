@@ -1,5 +1,11 @@
 # 正弦拟合算法选择
 
+> **生成时间**：2026-08-25（UTC+8）
+
+> **代码位置**：`rm_utils\algorithm\ransac_sine_fitter.cpp` / `rm_utils\algorithm\ransac_sine_fitter.hpp`
+
+> **命名空间**：`rm_utils`
+
 当前模型为：
 
 ```text
