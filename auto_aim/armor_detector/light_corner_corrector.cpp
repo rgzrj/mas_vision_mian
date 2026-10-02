@@ -6,8 +6,8 @@ namespace auto_aim
 
 void LightCornerCorrector::correctCorners(Armor &armor, const cv::Mat &gray_img) noexcept
 {
-    lightbar_points_corrector(armor.left, gray_img);
-    lightbar_points_corrector(armor.right, gray_img);
+    correctLightbar(armor.left, gray_img);
+    correctLightbar(armor.right, gray_img);
     // 更新装甲板的四个角点 (Armor::points)
     armor.points.clear();
     armor.points.reserve(4);
@@ -20,10 +20,9 @@ void LightCornerCorrector::correctCorners(Armor &armor, const cv::Mat &gray_img)
     armor.center = (armor.left.center + armor.right.center) / 2.0;
 }
 
-void LightCornerCorrector::lightbar_points_corrector(LightBar &lightbar, const cv::Mat &gray_img) const noexcept
+void LightCornerCorrector::correctLightbar(LightBar &lightbar, const cv::Mat &gray_img) const noexcept
 {
     // 配置参数
-    constexpr float MAX_BRIGHTNESS = 25;   // 归一化最大亮度值
     constexpr float ROI_SCALE      = 0.1;  // ROI扩展比例
     constexpr float SEARCH_START   = 0.4;  // 搜索起始位置比例
     constexpr float SEARCH_END     = 0.6;  // 搜索结束位置比例
@@ -171,7 +170,7 @@ void LightCornerCorrector::lightbar_points_corrector(LightBar &lightbar, const c
         if (candidates.empty())
         {
             // 降级策略：如果找不到梯度点，返回几何计算的端点
-            float dir_factor = (direction > 0) ? -0.5f : 0.5f;
+            const float dir_factor = 0.5f * static_cast<float>(direction);
             return cv::Point2f(center_global.x + axis.x * lightbar.length * dir_factor, center_global.y + axis.y * lightbar.length * dir_factor);
         }
 

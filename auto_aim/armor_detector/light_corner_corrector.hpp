@@ -19,11 +19,18 @@ class LightCornerCorrector
 {
   public:
     LightCornerCorrector() noexcept = default;
-
+    /**
+     * @brief 对装甲板的角点进行修正
+     * @param armor 待修正的装甲板
+     * @param gray_img 灰度图像
+     */
     void correctCorners(Armor &armor, const cv::Mat &gray_img) noexcept;
-
-  private:
-    void lightbar_points_corrector(LightBar &lightbar, const cv::Mat &gray_img) const noexcept;
+    /**
+     * @brief 对灯条的角点进行修正
+     * @param lightbar 待修正的灯条
+     * @param gray_img 灰度图像
+     */
+    void correctLightbar(LightBar &lightbar, const cv::Mat &gray_img) const noexcept;
 };
 
 } // namespace auto_aim
