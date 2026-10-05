@@ -96,6 +96,8 @@ ArmorDetector::ArmorDetector(const std::string &config_path)
             // 读取基础参数
             debug_ = armor_detector["debug"].as<bool>(false);
             plotter_enable_ = armor_detector["plotter_enable"].as<bool>(false);
+            lightbar_center_refinement_enable_ =
+                armor_detector["lightbar_center_refinement_enable"].as<bool>(false);
             // 读取二值化参数
             binary_thres_ = armor_detector["binary_thres"].as<int>(90);
             // 读取颜色参数
@@ -178,6 +180,22 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
     // 查找灯条
     lights_ = findLights(binary_, bgr_img);
 
+    // 每根来源灯条在配板前只搜索一次端点，共享候选复用精修结果。
+    for (auto &light : lights_)
+        light_corner_corrector_.correctLightbar(light, gray_);
+
+    // 在配板前每根来源灯条只精修一次，避免共享候选得到不同的端点。
+    for (auto &light : lights_)
+    {
+        const auto prev_center = light.center;
+        if (!light_corner_corrector_.correctCenter(light, gray_)) continue;
+        const double shift = cv::norm(light.center - prev_center);
+
+        ++stats_.refined_lightbar_count;
+        stats_.center_shift_sum += shift;
+        stats_.center_shift_max = std::max(stats_.center_shift_max, shift);
+    }
+
     // 查找装甲板
     armors_ = findArmors(lights_, bgr_img);
 
@@ -192,6 +210,11 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
 
         nlohmann::json data;
         data["detector"]["stage"]                      = stage;
+        data["detector"]["center_refinement_enabled"]   = lightbar_center_refinement_enable_;
+        data["detector"]["refined_lightbar_count"]      = stats_.refined_lightbar_count;
+        data["detector"]["center_shift_mean_px"]        = stats_.refined_lightbar_count == 0
+                                                            ? 0.0 : stats_.center_shift_sum / stats_.refined_lightbar_count;
+        data["detector"]["center_shift_max_px"]         = stats_.center_shift_max;
         data["detector"]["contour_count"]              = stats_.contour_count;
         data["detector"]["contour_too_small"]          = stats_.contour_too_small;
         data["detector"]["light_reject_area"]          = stats_.light_reject_area;
@@ -210,7 +233,6 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
         data["detector"]["classifier_confidence_mean"] = stats_.classifier_evaluated_count == 0
                                                                ? 0.0
                                                                : stats_.classifier_confidence_sum / stats_.classifier_evaluated_count;
-
         data["detector"]["classifier_confidence_max"]         = stats_.classifier_confidence_max;
         data["detector"]["pair_reject_contain_light"]         = stats_.pair_reject_contain_light;
         data["detector"]["pair_reject_ratio"]                 = stats_.pair_reject_ratio;
@@ -230,7 +252,7 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
         data["detector"]["reject_candidate_rectangular_error_deg"] = stats_.reject_candidate_rectangular_error * 57.3;
         data["detector"]["reject_candidate_class"]                 = stats_.reject_candidate_class_name;
         data["detector"]["reject_candidate_confidence"]            = stats_.reject_candidate_confidence;
-        data["detector"]["corner_diagnostic_stage"]                = "raw-corner-bypass-v38";
+        data["detector"]["corner_diagnostic_stage"]                = "gradient-corner-refinement-v74";
         data["detector"]["corner_sample_count"]                    = stats_.corner_sample_count;
         data["detector"]["corner_raw_lightbar_length_mean_px"]     = stats_.corner_sample_count == 0
                                                                            ? 0.0
@@ -333,7 +355,7 @@ std::vector<LightBar> ArmorDetector::findLights(const cv::Mat &bin_img, const cv
             {
                 continue;
             }
-            
+
             axis *= 1.0f / axis_length;
             const cv::Point2f perpendicular(-axis.y, axis.x); // axis 的垂直方向单位向量
             int               diff_sum    = 0;
@@ -389,7 +411,6 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
     std::vector<Armor> armors;
     std::vector<Armor> candidates; // 预筛选的候选装甲板
 
-    // 记录被拒绝候选的诊断信息
     const auto record_rejected_candidate = [this](const Armor        &armor,
                                                    bool               contain_light,
                                                    int                failed_gate_count,
@@ -397,8 +418,7 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
                                                    bool               classifier_rejected,
                                                    const char        *reason,
                                                    const std::string &class_name,
-                                                   double             confidence)
-    {
+                                                   double             confidence) {
         const RejectCandidateRank candidate_rank{classifier_rejected,
                                                   failed_gate_count,
                                                   distance,
@@ -443,14 +463,12 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
 
             const bool contain_light = containLight(left - lights.begin(), right - lights.begin(), lights);
             const bool reject_ratio  = armor.ratio < min_armor_ratio_ || armor.ratio > max_armor_ratio_;
-
-            const bool reject_side_ratio        = armor.side_ratio > max_side_ratio_;
+            const bool reject_side_ratio = armor.side_ratio > max_side_ratio_;
             const bool reject_rectangular_error = armor.rectangular_error > max_rectangular_error_;
-            const int  failed_gate_count        = static_cast<int>(contain_light) + static_cast<int>(reject_ratio) +
+            const int  failed_gate_count = static_cast<int>(contain_light) + static_cast<int>(reject_ratio) +
                                           static_cast<int>(reject_side_ratio) + static_cast<int>(reject_rectangular_error);
 
             double reject_distance = 0.0;
-
             if (armor.ratio < min_armor_ratio_)
                 reject_distance += (min_armor_ratio_ - armor.ratio) / std::max(min_armor_ratio_, 1e-6);
             else if (armor.ratio > max_armor_ratio_)
@@ -506,16 +524,16 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
 
     stats_.armor_candidate_count = candidates.size();
 
-    // 数字特征筛选，收集候选装甲板
     for (auto &armor : candidates)
     {
-        const auto reject_reason       = classifier->classify(src_img, armor);
+        // 数字识别
+        const auto reject_reason = classifier->classify(src_img, armor);
         const char *reject_reason_name = "pass";
         if (reject_reason != NumberClassifier::RejectReason::MODEL_NOT_LOADED)
         {
             stats_.classifier_evaluated_count++;
             stats_.classifier_confidence_sum += armor.confidence;
-            stats_.classifier_confidence_max  = std::max(stats_.classifier_confidence_max, static_cast<double>(armor.confidence));
+            stats_.classifier_confidence_max = std::max(stats_.classifier_confidence_max, static_cast<double>(armor.confidence));
         }
         switch (reject_reason)
         {
@@ -546,16 +564,15 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
         }
 
         const double raw_lightbar_length =
-            (cv::norm(armor.left.top - armor.left.bottom) + cv::norm(armor.right.top - armor.right.bottom)) / 2.0;
+            (armor.left.detected_length + armor.right.detected_length) / 2.0;
         const double raw_width_height_ratio =
-            cv::norm(armor.left.center - armor.right.center) / std::max(raw_lightbar_length, 1e-6);
+            cv::norm(armor.left.detected_center - armor.right.detected_center) / std::max(raw_lightbar_length, 1e-6);
 
-        // 验证自定义角点对 EKF 的影响
         const double corrected_lightbar_length =
             (cv::norm(armor.left.top - armor.left.bottom) + cv::norm(armor.right.top - armor.right.bottom)) / 2.0;
         const double corrected_width_height_ratio =
             cv::norm(armor.left.center - armor.right.center) / std::max(corrected_lightbar_length, 1e-6);
-        
+
         stats_.corner_sample_count++;
         stats_.corner_raw_lightbar_length_sum += raw_lightbar_length;
         stats_.corner_corrected_lightbar_length_sum += corrected_lightbar_length;
