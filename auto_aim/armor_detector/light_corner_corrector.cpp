@@ -4,6 +4,36 @@
 namespace auto_aim
 {
 
+bool LightCornerCorrector::correctCenter(LightBar &lightbar, const cv::Mat &gray_img) const
+{
+    // 灰度ROI归一化+moments
+    if (gray_img.empty() || lightbar.width <= 3.0) return false;
+
+    cv::Rect roi = lightbar.rotated_rect.boundingRect();
+    const int pad_x = static_cast<int>(roi.width * 0.07);
+    const int pad_y = static_cast<int>(roi.height * 0.07);
+
+    roi = cv::Rect(roi.x - pad_x, roi.y - pad_y, roi.width + 2 * pad_x, roi.height + 2 * pad_y);
+    roi &= cv::Rect(0, 0, gray_img.cols, gray_img.rows);
+    if (roi.empty()) return false;
+
+    cv::Mat weights;
+    cv::normalize(gray_img(roi), weights, 0.0, 25.0, cv::NORM_MINMAX, CV_32F);
+    
+    const cv::Moments moments = cv::moments(weights, false);
+    if (!(moments.m00 > 0.0)) return false;
+    const cv::Point2f center(static_cast<float>(moments.m10 / moments.m00 + roi.x),
+                             static_cast<float>(moments.m01 / moments.m00 + roi.y));
+    const cv::Point2f shift = center - lightbar.center;
+    
+    lightbar.center = center;
+    lightbar.rotated_rect.center = center;
+    lightbar.top += shift;
+    lightbar.bottom += shift;
+    for (auto &point : lightbar.points) point += shift;
+    return true;
+}
+
 void LightCornerCorrector::correctCorners(Armor &armor, const cv::Mat &gray_img) noexcept
 {
     correctLightbar(armor.left, gray_img);
@@ -22,6 +52,7 @@ void LightCornerCorrector::correctCorners(Armor &armor, const cv::Mat &gray_img)
 
 void LightCornerCorrector::correctLightbar(LightBar &lightbar, const cv::Mat &gray_img) const noexcept
 {
+    if (gray_img.empty() || gray_img.type() != CV_8UC1) return;
     // 配置参数
     constexpr float ROI_SCALE      = 0.1;  // ROI扩展比例
     constexpr float SEARCH_START   = 0.4;  // 搜索起始位置比例
@@ -64,6 +95,7 @@ void LightCornerCorrector::correctLightbar(LightBar &lightbar, const cv::Mat &gr
     float       rect_angle = min_rect.angle;
     float       rect_w     = min_rect.size.width;
     float       rect_h     = min_rect.size.height;
+    if (rect_w <= 0.0 || rect_h <= 0.0) return;
 
     // OpenCV 的 RotatedRect 角度定义特殊：(-90, 0]，且总是对应较长的边
     // 需要根据长宽比调整角度和轴向量
@@ -181,6 +213,21 @@ void LightCornerCorrector::correctLightbar(LightBar &lightbar, const cv::Mat &gr
     // 检测顶部和底部
     lightbar.top    = find_corner(-1); // 向上搜索 → top
     lightbar.bottom = find_corner(1);  // 向下搜索 → bottom
+
+    // 同步精修后的几何：中心必须是端点中点，配板/分类/PnP/EKF共用同一套端点。
+    lightbar.center      = (lightbar.top + lightbar.bottom) / 2.0f;
+    lightbar.top2bottom  = lightbar.bottom - lightbar.top;
+    lightbar.length      = cv::norm(lightbar.top2bottom);
+    lightbar.width       = std::min(rect_w, rect_h);
+    lightbar.angle       = std::atan2(lightbar.top2bottom.y, lightbar.top2bottom.x);
+    lightbar.angle_error = std::abs(lightbar.angle - CV_PI / 2.0);
+    lightbar.ratio       = lightbar.length / lightbar.width;
+    lightbar.points      = {lightbar.top, lightbar.bottom};    
+    
+    lightbar.rotated_rect = cv::RotatedRect(
+        lightbar.center, cv::Size2f(static_cast<float>(lightbar.width), static_cast<float>(lightbar.length)),
+        static_cast<float>(lightbar.angle * 180.0 / CV_PI - 90.0));
+
 }
 
 } // namespace auto_aim
