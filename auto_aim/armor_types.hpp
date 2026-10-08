@@ -33,13 +33,15 @@ const char *const ARMOR_PRIORITIES[] = {"1", "2", "3", "4", "5", "sentry","outpo
 
 struct LightBar
 {
-    int                      source_id              = -1;              // 本帧检测来源，不是车体模型槽位
+    int                      source_id              = -1;             // 本帧检测来源，不是车体模型槽位
     EnemyColor               color                  = PURPLE;          // 灯条颜色
     bool                     target_color_confirmed = false;           // 是否明确偏向当前敌方装甲板颜色
     cv::Point2f              center, top, bottom, top2bottom;          // 灯条中心、上顶点、下顶点、上顶点到下顶点的距离
     std::vector<cv::Point2f> points;                                   // 灯条顶点
     double                   angle, angle_error, length, width, ratio; // 灯条角度、角度误差、长度、宽度、宽高比
     cv::RotatedRect          rotated_rect;                             // 灯条旋转矩形
+    cv::Point2f              detected_center;                          // 精修前中心，仅供诊断
+    double                   detected_length = 0.0;                    // 精修前长度，仅供诊断
 
     LightBar() = default;
 
@@ -62,6 +64,8 @@ struct LightBar
         angle_error = std::abs(angle - CV_PI / 2);
         length      = cv::norm(top2bottom);
         ratio       = length / width;
+        detected_center = center;
+        detected_length = length;
     }
 };
 
@@ -90,40 +94,38 @@ struct Armor
     double yaw_raw = 0.0; // 原始 IPPE yaw 角度
 
     // PnP / 模型约束位姿诊断。默认值保持有限，避免 JSON/CSV 序列化 NaN/inf。
-    bool   pnp_diagnostics_valid        = false;    
+    bool   pnp_diagnostics_valid        = false;
     int    pnp_solution_count           = 0;
     int    pnp_selected_branch          = -1;
     double pnp_reprojection_rms         = 0.0;
     double pnp_second_reprojection_rms  = 0.0;
-
-    // 2 个候选解在世界坐标系下的三维坐标
     std::array<Eigen::Vector3d, 2> pnp_candidate_xyz_world{
         Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
-    // 2 个候选解对应的装甲板法向量（世界坐标系)
     std::array<Eigen::Vector3d, 2> pnp_candidate_normal_world{
         Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
-
     std::array<int, 2> pnp_candidate_branch{{-1, -1}};
     std::array<double, 2> pnp_candidate_yaw{{0.0, 0.0}};
     std::array<double, 2> pnp_candidate_yaw_raw{{0.0, 0.0}};
     std::array<double, 2> pnp_candidate_rms{{0.0, 0.0}};
 
-    bool   pose_model_refined              = false;
-    bool   pose_yaw_search_boundary        = false;
-    bool   pose_pitch_search_boundary      = false;
-    bool   pose_independent_valid          = false;
-    double pose_refinement_rms             = 0.0;
-    double pose_refinement_normalized      = 0.0;
-    double pose_refinement_pitch           = 0.0;
-    int    pose_raw_support_branch         = -1;
-    double pose_raw_support_rms            = 0.0;
+    bool   pose_model_refined           = false;
+    double pose_refinement_rms          = 0.0;
+    double pose_refinement_normalized   = 0.0;
+    double pose_refinement_pitch        = 0.0;
+    int    pose_raw_support_branch      = -1;
+    double pose_raw_support_rms         = 0.0;
+
     double pose_raw_support_normalized_rms = 0.0;
-    double pose_raw_translation_delta      = 0.0;
-    double pose_raw_normal_delta           = 0.0;
-    double pose_raw_normalized_rms_delta   = 0.0;
-    double pose_translation_condition      = 0.0;
-    double pose_translation_algebraic_rms  = 0.0;
-    double pose_independent_score          = 0.0;
+
+    double pose_raw_translation_delta     = 0.0;
+    double pose_raw_normal_delta          = 0.0;
+    double pose_raw_normalized_rms_delta  = 0.0;
+    double pose_translation_condition     = 0.0;
+    double pose_translation_algebraic_rms = 0.0;
+    bool   pose_yaw_search_boundary       = false;
+    bool   pose_pitch_search_boundary     = false;
+    bool   pose_independent_valid         = false;
+    double pose_independent_score         = 0.0;
 
     Armor() {}
 
