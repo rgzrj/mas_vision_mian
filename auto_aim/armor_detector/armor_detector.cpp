@@ -96,8 +96,6 @@ ArmorDetector::ArmorDetector(const std::string &config_path)
             // 读取基础参数
             debug_ = armor_detector["debug"].as<bool>(false);
             plotter_enable_ = armor_detector["plotter_enable"].as<bool>(false);
-            lightbar_center_refinement_enable_ =
-                armor_detector["lightbar_center_refinement_enable"].as<bool>(false);
             // 读取二值化参数
             binary_thres_ = armor_detector["binary_thres"].as<int>(90);
             // 读取颜色参数
@@ -181,20 +179,7 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
     lights_ = findLights(binary_, bgr_img);
 
     // 每根来源灯条在配板前只搜索一次端点，共享候选复用精修结果。
-    for (auto &light : lights_)
-        light_corner_corrector_.correctLightbar(light, gray_);
-
-    // 在配板前每根来源灯条只精修一次，避免共享候选得到不同的端点。
-    for (auto &light : lights_)
-    {
-        const auto prev_center = light.center;
-        if (!light_corner_corrector_.correctCenter(light, gray_)) continue;
-        const double shift = cv::norm(light.center - prev_center);
-
-        ++stats_.refined_lightbar_count;
-        stats_.center_shift_sum += shift;
-        stats_.center_shift_max = std::max(stats_.center_shift_max, shift);
-    }
+    light_corner_corrector_.correctCorners(lights_, gray_);
 
     // 查找装甲板
     armors_ = findArmors(lights_, bgr_img);
@@ -210,11 +195,6 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
 
         nlohmann::json data;
         data["detector"]["stage"]                      = stage;
-        data["detector"]["center_refinement_enabled"]   = lightbar_center_refinement_enable_;
-        data["detector"]["refined_lightbar_count"]      = stats_.refined_lightbar_count;
-        data["detector"]["center_shift_mean_px"]        = stats_.refined_lightbar_count == 0
-                                                            ? 0.0 : stats_.center_shift_sum / stats_.refined_lightbar_count;
-        data["detector"]["center_shift_max_px"]         = stats_.center_shift_max;
         data["detector"]["contour_count"]              = stats_.contour_count;
         data["detector"]["contour_too_small"]          = stats_.contour_too_small;
         data["detector"]["light_reject_area"]          = stats_.light_reject_area;

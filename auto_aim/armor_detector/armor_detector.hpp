@@ -104,9 +104,6 @@ class ArmorDetector
         std::string reject_candidate_reason             = "none";
         std::string reject_candidate_class_name         = "";
         std::size_t corner_sample_count            = 0;
-        std::size_t refined_lightbar_count         = 0;
-        double      center_shift_sum               = 0.0;
-        double      center_shift_max               = 0.0;
         double      classifier_confidence_sum     = 0.0;
         double      classifier_confidence_max     = 0.0;
         double      corner_raw_lightbar_length_sum       = 0.0;

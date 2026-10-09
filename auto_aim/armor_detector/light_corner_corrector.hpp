@@ -2,6 +2,7 @@
 #define _LIGHT_CORRECTOR_H_
 
 #include <opencv2/opencv.hpp>
+#include <vector>
 
 #include "armor_types.hpp"
 
@@ -20,19 +21,15 @@ class LightCornerCorrector
   public:
     LightCornerCorrector() noexcept = default;
     /**
-     * @brief QD式亮度质心修正灯条，仅整体平移灯条的中心与端点，不改变灯条几何形状大小
-     * @param lightbar 待修正的灯条
+     * @brief 配板前逐根精修灯条端点，原地更新灯条几何
+     * @param lights 本帧来源灯条，每根只精修一次
      * @param gray_img 灰度图像
      */
-    bool correctCenter(LightBar &lightbar, const cv::Mat &gray_img) const;
+    void correctCorners(std::vector<LightBar> &lights, const cv::Mat &gray_img) const noexcept;
+
+  private:
     /**
-     * @brief 对装甲板的角点进行修正
-     * @param armor 待修正的装甲板
-     * @param gray_img 灰度图像
-     */
-    void correctCorners(Armor &armor, const cv::Mat &gray_img) noexcept;
-    /**
-     * @brief 对灯条的角点进行修正
+     * @brief 对单根灯条的上下端点进行修正并同步几何
      * @param lightbar 待修正的灯条
      * @param gray_img 灰度图像
      */

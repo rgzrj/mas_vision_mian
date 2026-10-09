@@ -4,50 +4,10 @@
 namespace auto_aim
 {
 
-bool LightCornerCorrector::correctCenter(LightBar &lightbar, const cv::Mat &gray_img) const
+void LightCornerCorrector::correctCorners(std::vector<LightBar> &lights, const cv::Mat &gray_img) const noexcept
 {
-    // 灰度ROI归一化+moments
-    if (gray_img.empty() || lightbar.width <= 3.0) return false;
-
-    cv::Rect roi = lightbar.rotated_rect.boundingRect();
-    const int pad_x = static_cast<int>(roi.width * 0.07);
-    const int pad_y = static_cast<int>(roi.height * 0.07);
-
-    roi = cv::Rect(roi.x - pad_x, roi.y - pad_y, roi.width + 2 * pad_x, roi.height + 2 * pad_y);
-    roi &= cv::Rect(0, 0, gray_img.cols, gray_img.rows);
-    if (roi.empty()) return false;
-
-    cv::Mat weights;
-    cv::normalize(gray_img(roi), weights, 0.0, 25.0, cv::NORM_MINMAX, CV_32F);
-    
-    const cv::Moments moments = cv::moments(weights, false);
-    if (!(moments.m00 > 0.0)) return false;
-    const cv::Point2f center(static_cast<float>(moments.m10 / moments.m00 + roi.x),
-                             static_cast<float>(moments.m01 / moments.m00 + roi.y));
-    const cv::Point2f shift = center - lightbar.center;
-    
-    lightbar.center = center;
-    lightbar.rotated_rect.center = center;
-    lightbar.top += shift;
-    lightbar.bottom += shift;
-    for (auto &point : lightbar.points) point += shift;
-    return true;
-}
-
-void LightCornerCorrector::correctCorners(Armor &armor, const cv::Mat &gray_img) noexcept
-{
-    correctLightbar(armor.left, gray_img);
-    correctLightbar(armor.right, gray_img);
-    // 更新装甲板的四个角点 (Armor::points)
-    armor.points.clear();
-    armor.points.reserve(4);
-    armor.points.emplace_back(armor.left.top);     // 0: 左上
-    armor.points.emplace_back(armor.right.top);    // 1: 右上
-    armor.points.emplace_back(armor.right.bottom); // 2: 右下
-    armor.points.emplace_back(armor.left.bottom);  // 3: 左下
-
-    // 更新装甲板中心 (基于优化后的灯条中心)
-    armor.center = (armor.left.center + armor.right.center) / 2.0;
+    for (auto &light : lights)
+        correctLightbar(light, gray_img);
 }
 
 void LightCornerCorrector::correctLightbar(LightBar &lightbar, const cv::Mat &gray_img) const noexcept
