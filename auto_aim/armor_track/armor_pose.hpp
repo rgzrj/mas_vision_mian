@@ -27,6 +27,9 @@ class ArmorPose
      */
     Eigen::Matrix3d Get_R_gimbal2world() const { return R_gimbal2world_; }
 
+    /** @brief 当前相机光心在世界坐标系中的位置。 */
+    Eigen::Vector3d cameraCenterInWorld() const { return R_gimbal2world_ * t_camera2gimbal_; }
+
     /**
      * @brief 设置云台坐标系到世界坐标系的旋转矩阵
      * @param q 接收到的imu姿态的四元数
@@ -77,18 +80,17 @@ class ArmorPose
      */
     void optimize_yaw(Armor &armor) const;
     /**
-     * @brief 计算装甲板重投影误差
+     * @brief 优化装甲板位姿（搜索最优位姿）
+     * @param armor 装甲板对象
+     * @param R_armor2world 装甲板到世界坐标系的旋转矩阵
+     * @param normalized_points 归一化图像点
+     * @param t_camera 相机位置
+     * @param rms 重投影误差
+     * @return 是否成功解算
      */
-    double armor_reprojection_error(const Armor &armor, double yaw, const double &inclined) const;
-    /**
-     * @brief 计算outpost重投影误差
-     */
-    double outpost_reprojection_error(Armor armor, const double &pitch);
-    /**
-     * @brief 计算重投影误差
-     */
-    double calculateReprojectionError(const std::vector<cv::Point2f> &image_points, const cv::Mat &rvec, const cv::Mat &tvec,
-                                      const std::vector<cv::Point3f> &object_points) const;
+    bool solve_translation(const Armor &armor, const Eigen::Matrix3d &R_armor2world,
+                           const std::vector<cv::Point2f> &normalized_points,
+                           Eigen::Vector3d &t_camera, double &rms) const;
 
     cv::Mat         camera_matrix_;    // 相机内参矩阵
     cv::Mat         distort_coeffs_;   // 畸变系数
