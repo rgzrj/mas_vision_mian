@@ -259,7 +259,7 @@ std::vector<Armor> ArmorDetector::ArmorDetect(const cv::Mat &bgr_img, std::strin
     // 显示结果
     if (debug_)
     {
-        showResult(bgr_img, binary_, window_name);
+        showResult(bgr_img, window_name);
     }
 
     return armors_;
@@ -600,7 +600,7 @@ bool ArmorDetector::containLight(const int i, const int j, const std::vector<Lig
     return false;
 }
 
-void ArmorDetector::showResult(const cv::Mat &bgr_img, const cv::Mat &bin_img, std::string window_name) const
+void ArmorDetector::showResult(const cv::Mat &bgr_img, std::string window_name) const
 {
     if (!debug_) return;
 
@@ -740,51 +740,6 @@ void ArmorDetector::showResult(const cv::Mat &bgr_img, const cv::Mat &bin_img, s
     stats.thickness = 2;
     display_texts.push_back(stats);
 
-    // 图像显示
-    std::string bin_window_name = window_name + "_binary";
-    display.display_add(bin_window_name, bin_img);
-
-    // 显示拼接后的数字图像
-    cv::Mat all_numbers_img = getAllNumbersImage();
-    if (!all_numbers_img.empty())
-    {
-        cv::Mat numbers_display;
-        cv::resize(all_numbers_img, numbers_display, cv::Size(140, all_numbers_img.rows * 5), 0, 0, cv::INTER_NEAREST);
-        std::string numbers_window_name = window_name + "_numbers";
-        display.display_add(numbers_window_name, numbers_display);
-    }
-
-    rm_utils::Display::getInstance().display_add(window_name, bgr_img, display_texts, display_points, display_lines);
-}
-
-cv::Mat ArmorDetector::getAllNumbersImage() const noexcept
-{
-    if (armors_.empty())
-    {
-        return cv::Mat(cv::Size(20, 28), CV_8UC1, cv::Scalar(0));
-    }
-    else
-    {
-        std::vector<cv::Mat> number_imgs;
-        number_imgs.reserve(armors_.size());
-
-        for (const auto &armor : armors_)
-        {
-            if (!armor.number_img.empty())
-            {
-                number_imgs.emplace_back(armor.number_img);
-            }
-        }
-
-        if (number_imgs.empty())
-        {
-            return cv::Mat(cv::Size(20, 28), CV_8UC1, cv::Scalar(0));
-        }
-
-        cv::Mat all_num_img;
-        cv::vconcat(number_imgs, all_num_img);
-
-        return all_num_img;
-    }
+    display.display_add(window_name, bgr_img, display_texts, display_points, display_lines);
 }
 } // namespace auto_aim

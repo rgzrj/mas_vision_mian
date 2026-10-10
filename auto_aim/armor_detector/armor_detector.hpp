@@ -47,13 +47,7 @@ class ArmorDetector
      * @param bgr_img 输入图像
      * @param window_name 窗口名称
      */
-    void showResult(const cv::Mat &bgr_img, const cv::Mat &bin_img, std::string window_name = "") const;
-
-    /**
-     * @brief 获取所有识别到的数字图像拼接后的图像
-     * @return 拼接后的数字图像，如果没有识别到则返回黑色图像
-     */
-    cv::Mat getAllNumbersImage() const noexcept;
+    void showResult(const cv::Mat &bgr_img, std::string window_name = "") const;
 
     /**
      * @brief 检查灯条是否存在共用灯条的情况
