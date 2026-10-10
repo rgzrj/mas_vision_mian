@@ -401,13 +401,13 @@ void ArmorPose::showPoseDebug(const std::vector<Armor> &armors, const cv::Mat &b
 
             const auto &object_points = (armor.type == ArmorType::BIG) ? BIG_ARMOR_POINTS : SMALL_ARMOR_POINTS;
 
-            // 根据 ypr_in_world 计算旋转矩阵 R_world2armor
+            // 根据 ypr_in_world 计算装甲板到世界坐标系的旋转矩阵
             double yaw   = armor.ypr_in_world.x();
             double pitch = armor.ypr_in_world.y();
             double roll  = armor.ypr_in_world.z();
 
-            Eigen::Matrix3d R_world2armor;
-            R_world2armor = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+            Eigen::Matrix3d R_armor2world;
+            R_armor2world = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
                             Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
 
             // 将物体坐标系的点转换到世界坐标系
@@ -418,7 +418,7 @@ void ArmorPose::showPoseDebug(const std::vector<Armor> &armors, const cv::Mat &b
                 Eigen::Vector3d p_local_eigen(p_local.x, p_local.y, p_local.z);
 
                 // 注意顺序：先旋转，后平移
-                Eigen::Vector3d p_world_eigen = R_world2armor * p_local_eigen + armor.xyz_in_world;
+                Eigen::Vector3d p_world_eigen = R_armor2world * p_local_eigen + armor.xyz_in_world;
 
                 world_corners.push_back(cv::Point3f(p_world_eigen.x(), p_world_eigen.y(), p_world_eigen.z()));
             }
