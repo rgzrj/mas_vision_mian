@@ -150,8 +150,8 @@ NumberClassifier::RejectReason NumberClassifier::classify(const cv::Mat &src, Ar
         }
     }
 
-    // 1号为大装甲板，其余数字为小装甲板
-    if ((armor.type == ArmorType::SMALL && armor.number == "1") ||
+    // 同济与 NNDeployment 均把基地下部定义为大板；当前只打下部，拒绝基地小板（上部）。
+    if ((armor.type == ArmorType::SMALL && (armor.number == "1" || armor.number == "base")) ||
         (armor.type == ArmorType::BIG && (armor.number == "2" || armor.number == "3" || armor.number == "4" ||
                                           armor.number == "5" || armor.number == "sentry" || armor.number == "outpost")))
     {
