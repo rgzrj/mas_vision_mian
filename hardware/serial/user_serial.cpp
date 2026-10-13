@@ -1,17 +1,25 @@
 #include "user_serial.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <exception>
 #include <fstream>
 #include <stdio.h>
 #include <string.h>
 
+#include "crc16.hpp"
 #include "mas_log.hpp"
 #include "serial_types.hpp"
+#include <nlohmann/json.hpp>
 #include <yaml-cpp/yaml.h>
 
 extern std::atomic<bool> g_shutdown;
+
+constexpr uint8_t RX_HEADER = 0x5A;
+constexpr uint8_t TX_HEADER = 0xA5;
+constexpr size_t  RX_FRAME_SIZE = 1 + sizeof(ReceivePacket) + 2;
+constexpr size_t  TX_FRAME_SIZE = 1 + sizeof(SendPacket) + 2;
 
 UserSerial::UserSerial(const std::string &config_path)
 {
@@ -159,28 +167,15 @@ void UserSerial::closeSerial()
 void UserSerial::sendVision(float target_yaw, float target_pitch, uint8_t found, uint8_t fire_advice)
 {
     std::lock_guard<std::mutex> lock(send_packet_mutex_);
-    if (found)
-    {
-        send_packet_.target_yaw   = target_yaw;
-        send_packet_.target_pitch = target_pitch;
-    }
-    send_packet_.found        = found;
-    send_packet_.fire_advice  = found ? fire_advice : 0;
+    send_packet_.target_yaw   = target_yaw;
+    send_packet_.target_pitch = target_pitch;
+    send_packet_.fire_advice = found ? fire_advice : 0;
 }
 
 void UserSerial::disableVision()
 {
     std::lock_guard<std::mutex> lock(send_packet_mutex_);
-    send_packet_.found       = 0;
     send_packet_.fire_advice = 0;
-}
-
-void UserSerial::sendNav(float vx, float vy, uint8_t nav_state)
-{
-    std::lock_guard<std::mutex> lock(send_packet_mutex_);
-    send_packet_.vx        = vx;
-    send_packet_.vy        = vy;
-    send_packet_.nav_state = nav_state;
 }
 
 void UserSerial::sendPacketToSerial()
@@ -198,7 +193,14 @@ void UserSerial::sendPacketToSerial()
             std::lock_guard<std::mutex> lock(send_packet_mutex_);
             packet = send_packet_;
         }
-        serial_port->write(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
+
+        std::array<uint8_t, TX_FRAME_SIZE> frame{};
+        frame[0] = TX_HEADER;
+        std::memcpy(frame.data() + 1, &packet, sizeof(packet));
+        const uint16_t crc = serial_crc16::checksum(frame.data(), TX_FRAME_SIZE - 2);
+        frame[TX_FRAME_SIZE - 2] = static_cast<uint8_t>(crc & 0xFF);
+        frame[TX_FRAME_SIZE - 1] = static_cast<uint8_t>(crc >> 8);
+        serial_port->write(frame.data(), frame.size());
     }
     catch (const std::exception &e)
     {
@@ -240,9 +242,9 @@ void UserSerial::receiveSerial()
                 }
             }
 
-            while (recv_buffer_.size() >= sizeof(ReceivePacket))
+            while (recv_buffer_.size() >= RX_FRAME_SIZE)
             {
-                auto header_it = std::find(recv_buffer_.begin(), recv_buffer_.end(), 0xAA);
+                auto header_it = std::find(recv_buffer_.begin(), recv_buffer_.end(), RX_HEADER);
                 if (header_it == recv_buffer_.end())
                 {
                     recv_buffer_.clear();
@@ -254,55 +256,57 @@ void UserSerial::receiveSerial()
                     header_it = recv_buffer_.begin();
                 }
 
-                if (recv_buffer_.size() < sizeof(ReceivePacket))
+                if (recv_buffer_.size() < RX_FRAME_SIZE)
                 {
                     break;
                 }
 
-                ReceivePacket packet;
-                std::memcpy(&packet, recv_buffer_.data(), sizeof(ReceivePacket));
-
-                if (packet.tail == 0x5A)
-                {
-                    Eigen::Quaterniond q(packet.q[0], packet.q[1], packet.q[2], packet.q[3]);
-                    const double norm = q.norm();
-                    if (std::isfinite(q.w()) && std::isfinite(q.x()) && std::isfinite(q.y()) && std::isfinite(q.z()) && norm > 1e-6)
-                    {
-                        q.normalize();
-                        const auto received_at = std::chrono::steady_clock::now();
-                        if (data_queue_.try_push({q, received_at}))
-                        {
-                            switch (packet.mode)
-                            {
-                            case 0: vision_mode_.store(VisionMode::AUTO_AIM_RED); break;
-                            case 1: vision_mode_.store(VisionMode::AUTO_AIM_BLUE); break;
-                            case 2: vision_mode_.store(VisionMode::SMALL_RUNE_RED); break;
-                            case 3: vision_mode_.store(VisionMode::SMALL_RUNE_BLUE); break;
-                            case 4: vision_mode_.store(VisionMode::BIG_RUNE_RED); break;
-                            case 5: vision_mode_.store(VisionMode::BIG_RUNE_BLUE); break;
-                            default:
-                                vision_mode_.store(VisionMode::AUTO_AIM_RED);
-                                MAS_LOG_WARN("[UserSerial] Invalid mode: {}", packet.mode);
-                                break;
-                            }
-
-#ifdef SENTRY
-                            {
-                                std::lock_guard<std::mutex> lock(referee_mutex_);
-                                referee_data_ = packet.referee_data;
-                            }
-#endif
-                            const auto received_ms = std::chrono::duration_cast<std::chrono::milliseconds>(received_at.time_since_epoch()).count();
-                            last_data_receive_ms_.store(received_ms);
-                            has_received_data_.store(true);
-                        }
-                    }
-                    recv_buffer_.erase(recv_buffer_.begin(), recv_buffer_.begin() + sizeof(ReceivePacket));
-                }
-                else
+                const uint16_t expected_crc = static_cast<uint16_t>(
+                    recv_buffer_[RX_FRAME_SIZE - 2] |
+                    (static_cast<uint16_t>(recv_buffer_[RX_FRAME_SIZE - 1]) << 8));
+                if (serial_crc16::checksum(recv_buffer_.data(), RX_FRAME_SIZE - 2) != expected_crc)
                 {
                     recv_buffer_.erase(recv_buffer_.begin());
+                    continue;
                 }
+
+                ReceivePacket packet;
+                std::memcpy(&packet, recv_buffer_.data() + 1, sizeof(packet));
+
+                Eigen::Quaterniond q(packet.q[0], packet.q[1], packet.q[2], packet.q[3]);
+                const double norm = q.norm();
+                if (std::isfinite(q.w()) && std::isfinite(q.x()) && std::isfinite(q.y()) && std::isfinite(q.z()) && norm > 1e-6)
+                {
+                    q.normalize();
+                    const auto received_at = std::chrono::steady_clock::now();
+                    if (data_queue_.try_push({q, received_at}))
+                    {
+                        switch (packet.mode)
+                        {
+                        case 0: vision_mode_.store(VisionMode::AUTO_AIM_RED); break;
+                        case 1: vision_mode_.store(VisionMode::AUTO_AIM_BLUE); break;
+                        case 2: vision_mode_.store(VisionMode::SMALL_RUNE_RED); break;
+                        case 3: vision_mode_.store(VisionMode::SMALL_RUNE_BLUE); break;
+                        case 4: vision_mode_.store(VisionMode::BIG_RUNE_RED); break;
+                        case 5: vision_mode_.store(VisionMode::BIG_RUNE_BLUE); break;
+                        default:
+                            vision_mode_.store(VisionMode::AUTO_AIM_RED);
+                            MAS_LOG_WARN("[UserSerial] Invalid mode: {}", packet.mode);
+                            break;
+                        }
+
+#ifdef SENTRY
+                        {
+                            std::lock_guard<std::mutex> lock(referee_mutex_);
+                            referee_data_ = packet.referee_data;
+                        }
+#endif
+                        const auto received_ms = std::chrono::duration_cast<std::chrono::milliseconds>(received_at.time_since_epoch()).count();
+                        last_data_receive_ms_.store(received_ms);
+                        has_received_data_.store(true);
+                    }
+                }
+                recv_buffer_.erase(recv_buffer_.begin(), recv_buffer_.begin() + RX_FRAME_SIZE);
             }
         }
     }

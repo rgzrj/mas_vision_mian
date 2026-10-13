@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -12,6 +13,7 @@
 #include "SPSCQueue.h"
 #include "serial.h"
 #include "serial_types.hpp"
+#include "plotter.hpp"
 
 class UserSerial
 {
@@ -47,17 +49,6 @@ class UserSerial
     void sendVision(float target_yaw = 0.0f, float target_pitch = 0.0f, uint8_t found = 0, uint8_t fire_advice = 0);
     /** 禁用视觉跟随和开火，保留最后一次目标角度。 */
     void disableVision();
-    /*
-     * @brief 发送导航数据
-     * @param vx x 方向速度
-     * @param vy y 方向速度
-     * @param nav_state 导航状态
-     */
-    void sendNav(float vx = 0.0f, float vy = 0.0f, uint8_t nav_state = 0);
-    /*
-     * @brief 发送数据包到串口，serial线程调用
-     */
-    void sendPacketToSerial();
     /*
      * @brief 接收串口数据，serial线程调用
      */

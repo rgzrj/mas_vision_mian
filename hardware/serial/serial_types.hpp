@@ -5,7 +5,7 @@
 #include <chrono>
 #include <cstdint>
 
-// #define SENTRY 
+// #define SENTRY
 
 // 接收结构体
 
@@ -22,34 +22,24 @@ struct __attribute__((packed)) RefereePacket
 #ifdef  SENTRY
 struct __attribute__((packed)) ReceivePacket
 {
-    uint8_t header = 0xAA;
     uint8_t mode;
     float   q[4]; // 四元数 wxyz 顺序
     RefereePacket referee_data;
-    uint8_t tail = 0X5A;
 };
 #else
 struct __attribute__((packed)) ReceivePacket
 {
-    uint8_t header = 0xAA;
     uint8_t mode;
     float   q[4]; // 四元数 wxyz 顺序
-    uint8_t tail = 0X5A;
 };
 #endif
 
 // 发送结构体
 struct __attribute__((packed)) SendPacket
 {
-    uint8_t header = 0XBB;
-    uint8_t found;
-    uint8_t fire_advice;
     float   target_yaw;
     float   target_pitch;
-    float   vx;
-    float   vy;
-    uint8_t nav_state;
-    uint8_t tail = 0X5B;
+    uint8_t fire_advice;
 };
 
 // 发送到队列的数据消息
