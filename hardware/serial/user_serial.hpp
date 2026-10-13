@@ -50,6 +50,10 @@ class UserSerial
     /** 禁用视觉跟随和开火，保留最后一次目标角度。 */
     void disableVision();
     /*
+     * @brief 发送数据包到串口，serial线程调用
+     */
+    void sendPacketToSerial();
+    /*
      * @brief 接收串口数据，serial线程调用
      */
     void receiveSerial();
