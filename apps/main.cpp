@@ -14,8 +14,6 @@
 #include "serial_thread.hpp"
 #include "usbcamera_config.hpp"
 #include "usbcamera_thread.hpp"
-#include "ros2_comm.hpp"
-#include "ros2_thread.hpp"
 
 #include "calibrate_camera.hpp"
 #include "calibrate_handeye.hpp"
@@ -78,12 +76,6 @@ int main(int argc, char *argv[])
             MAS_LOG_WARN("Using default USB camera configuration");
         }
 
-        // 加载 ROS2 通信配置文件
-        if (!Ros2_comm::loadConfig("config/ros2.yaml"))
-        {
-            MAS_LOG_WARN("Using default ROS2 communication configuration");
-        }
-
         // 创建SPSCQueue，用于相机图像
         size_t camera_buffer_size = 2;
         auto   camera_buffer      = std::make_shared<rigtorp::SPSCQueue<CameraFrame>>(camera_buffer_size);
@@ -107,22 +99,6 @@ int main(int argc, char *argv[])
 
         // 启动装甲板处理线程
         auto armor_future = pool.submit_task([camera_buffer, usb_buffer]() { threads::armor_thread_func(camera_buffer, usb_buffer); });
-
-        // 启动 ROS2 通信线程
-        std::shared_future<void> ros2_future;
-        
-        if (Ros2_comm::isEnabled())
-        {
-            ros2_future = pool.submit_task([]() {
-                threads::ros2_thread_func(UserSerial::getInstance());
-            });
-            
-            MAS_LOG_INFO("ROS2 communication thread started");
-        }
-        else
-        {
-            MAS_LOG_INFO("ROS2 communication is disabled");
-        }
 
         // 主线程等待关闭信号
         while (!g_shutdown)
@@ -149,11 +125,6 @@ int main(int argc, char *argv[])
         {
             armor_future.get();
         }
-        if (ros2_future.valid())
-        {
-            ros2_future.get();
-        }
-
         return 0;
     }
     catch (const std::exception &e)
