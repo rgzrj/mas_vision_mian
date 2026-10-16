@@ -3,7 +3,7 @@
 # 自定义串口设备udev规则设置脚本
 # 该脚本会自动检测连接的串口设备并创建固定的设备名称
 
-echo "串口设备udev规则设置脚本"
+echo "视觉串口设备udev规则设置脚本（PCCOMM-AIM）"
 echo "========================="
 
 # 检查是否以root权限运行
@@ -33,6 +33,17 @@ if [ ! -e "$DEVICE_PATH" ]; then
     exit 1
 fi
 
+# 只提醒端口占用，不关闭串口或结束进程。
+if command -v fuser >/dev/null 2>&1; then
+    if sudo fuser -- "$DEVICE_PATH" >/dev/null 2>&1; then
+        echo "提醒：$DEVICE_PATH 已被进程占用，可能是视觉或导航程序："
+        sudo fuser -v -- "$DEVICE_PATH"
+        echo "本脚本不会释放占用；重新插拔或启动程序前，请先停止对应程序。"
+    fi
+else
+    echo "提醒：未找到 fuser，无法检查端口占用；需要时安装 psmisc。"
+fi
+
 # 获取设备的属性信息
 echo "获取设备属性信息..."
 
@@ -42,6 +53,13 @@ PRODUCT_ID=$(udevadm info -n "$DEVICE_PATH" -q property | sed -n 's/^ID_MODEL_ID
 
 if [ -z "$VENDOR_ID" ] || [ -z "$PRODUCT_ID" ]; then
     echo "无法获取设备的 ID_VENDOR_ID 和 ID_MODEL_ID"
+    exit 1
+fi
+
+# 读取 USB 的 iInterface 字符串，不使用设备产品名称。
+INTERFACE=$(udevadm info --attribute-walk --name="$DEVICE_PATH" | sed -n 's/^[[:space:]]*ATTRS{interface}=="\([^"]*\)".*/\1/p' | head -n 1)
+if [ "$INTERFACE" != "PCCOMM-AIM" ]; then
+    echo "错误：所选设备接口为 '$INTERFACE'，本脚本需要 PCCOMM-AIM。"
     exit 1
 fi
 
@@ -55,10 +73,11 @@ echo "设备信息:"
 echo "  Vendor ID: $VENDOR_ID"
 echo "  Product ID: $PRODUCT_ID"
 echo "  Serial: $SERIAL"
+echo "  Interface: $INTERFACE"
 
 # 询问用户想要的固定设备名
 echo ""
-echo "请输入想要的固定设备名称 (例如: my_serial_device, 将创建为 /dev/my_serial_device):"
+echo "请输入想要的固定设备名称 (视觉建议: mascdc, 将创建为 /dev/mascdc；不要与导航使用同名):"
 read FIXED_NAME
 
 if [ -z "$FIXED_NAME" ]; then
@@ -67,10 +86,8 @@ if [ -z "$FIXED_NAME" ]; then
 fi
 
 # 创建udev规则
-RULE_CONTENT="SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"$VENDOR_ID\", ATTRS{idProduct}==\"$PRODUCT_ID\""
-if [ -n "$SERIAL" ]; then
-    RULE_CONTENT="$RULE_CONTENT, ATTRS{serial}==\"$SERIAL\""
-fi
+# VID/PID 用设备属性匹配，interface 用接口父节点匹配，避免 ATTRS 跨层混用。
+RULE_CONTENT="SUBSYSTEM==\"tty\", ENV{ID_VENDOR_ID}==\"$VENDOR_ID\", ENV{ID_MODEL_ID}==\"$PRODUCT_ID\", ATTRS{interface}==\"$INTERFACE\""
 RULE_CONTENT="$RULE_CONTENT, SYMLINK+=\"$FIXED_NAME\", MODE=\"0666\", GROUP=\"dialout\""
 
 # 创建udev规则文件

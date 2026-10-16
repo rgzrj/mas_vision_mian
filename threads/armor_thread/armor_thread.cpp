@@ -81,13 +81,14 @@ void armor_thread_func(std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> hikcamer
                         serial.disableVision();
                         continue;
                     }
-                    
+
                     auto               armors = detector.ArmorDetect(frame.frame, "HikCamera");
                     Eigen::Quaterniond pos    = serial.q(frame.timestamp);
                     tracker.armor_pose().set_R_gimbal2world(pos);
                     auto target = tracker.track(armors, frame.timestamp, "HikCamera_track", frame.frame);
-                    auto shoot_result = shooter.shoot(target, frame.timestamp, tracker.armor_pose().Get_R_gimbal2world(), frame.frame, "HikCamera_shoot",
-                                                      quaternion_age_ms, tracker.state() == "tracking");
+                    auto shoot_result = shooter.shoot(target, frame.timestamp, tracker.armor_pose().Get_R_gimbal2world(),
+                                                      frame.frame, "HikCamera_shoot", quaternion_age_ms,
+                                                      tracker.measurement_accepted());
                     serial.sendVision(shoot_result.target_yaw, shoot_result.target_pitch, shoot_result.found, shoot_result.fire_advice);
                     processed = true;
                 }

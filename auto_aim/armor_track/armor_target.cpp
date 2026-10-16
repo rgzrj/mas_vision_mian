@@ -141,9 +141,9 @@ void Target::predict(std::chrono::steady_clock::time_point t)
 }
 
 bool Target::update(const Armor &armor)
-{    
-    int    best_id       = -1; 
-    double best_score    = std::numeric_limits<double>::infinity();
+{
+    int    best_id         = -1;
+    double min_angle_error = std::numeric_limits<double>::infinity();
     const auto predicted = armor_xyza_list();
     using Candidate = std::pair<Eigen::Vector4d, int>;
     std::vector<Candidate> candidates;
@@ -162,17 +162,13 @@ bool Target::update(const Armor &armor)
     {
         const auto &[xyza, id] = candidates[index];
         const Eigen::Vector3d ypd = rm_utils::xyz2ypd(xyza.head<3>());
-        const double yaw_error =
-            std::abs(rm_utils::limit_rad(armor.ypr_in_world[0] - xyza[3]));
-        const double position_yaw_error =
+        const double angle_error =
+            std::abs(rm_utils::limit_rad(armor.ypr_in_world[0] - xyza[3])) +
             std::abs(rm_utils::limit_rad(armor.ypd_in_world[0] - ypd[0]));
-        const double angle_weight =
-            name != "outpost" && std::abs(ekf_.x[7]) > 2.0 ? 2.0 : 1.0;
-        const double score = ypd[2] + angle_weight * (yaw_error + position_yaw_error) * 10.0;
-        if (score < best_score)
+        if (angle_error < min_angle_error)
         {
-            best_score = score;
-            best_id = id;
+            min_angle_error = angle_error;
+            best_id         = id;
         }
     }
     if (best_id < 0) return false;

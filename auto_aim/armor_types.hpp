@@ -33,15 +33,15 @@ const char *const ARMOR_PRIORITIES[] = {"1", "2", "3", "4", "5", "sentry","outpo
 
 struct LightBar
 {
-    int                      source_id              = -1;             // 本帧检测来源，不是车体模型槽位
+    int                      source_id              = -1;              // 本帧检测来源，不是车体模型槽位
     EnemyColor               color                  = PURPLE;          // 灯条颜色
     bool                     target_color_confirmed = false;           // 是否明确偏向当前敌方装甲板颜色
     cv::Point2f              center, top, bottom, top2bottom;          // 灯条中心、上顶点、下顶点、上顶点到下顶点的距离
     std::vector<cv::Point2f> points;                                   // 灯条顶点
     double                   angle, angle_error, length, width, ratio; // 灯条角度、角度误差、长度、宽度、宽高比
     cv::RotatedRect          rotated_rect;                             // 灯条旋转矩形
-    cv::Point2f              detected_center;                          // 精修前中心，仅供诊断
-    double                   detected_length = 0.0;                    // 精修前长度，仅供诊断
+    cv::Point2f              detected_center;                          // 精修前中心
+    double                   detected_length;                          // 精修前长度
 
     LightBar() = default;
 
@@ -76,7 +76,8 @@ struct Armor
     cv::Point2f              center;      // 灯条中心连线的中点
     std::vector<cv::Point2f> points;      // 4个角点，顺序：左上->右上->右下->左下
 
-    double ratio;             // 宽高比
+    double init_ratio;        // 精修前宽高比
+    double ratio;             // 精修后宽高比
     double side_ratio;        // 长短灯条比
     double rectangular_error; // 垂直度误差 (0 表示垂直)
 
@@ -156,13 +157,17 @@ struct Armor
         auto width               = cv::norm(left2right);
         auto max_lightbar_length = std::max(left.length, right.length);
         auto min_lightbar_length = std::min(left.length, right.length);
+       
+        const auto detected_width  = cv::norm(left.detected_center - right.detected_center);
+        const auto detected_length = std::max(left.detected_length, right.detected_length);
 
         // 除 0 保护
         if (max_lightbar_length < 1e-6) max_lightbar_length = 1e-6;
         if (min_lightbar_length < 1e-6) min_lightbar_length = 1e-6;
 
-        ratio      = width / max_lightbar_length;
-        side_ratio = max_lightbar_length / min_lightbar_length;
+        init_ratio   = detected_width / detected_length;
+        ratio        = width / max_lightbar_length;
+        side_ratio   = max_lightbar_length / min_lightbar_length;
 
         auto roll = std::atan2(left2right.y, left2right.x);
 

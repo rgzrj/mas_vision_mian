@@ -25,7 +25,15 @@ constexpr double nisThreshold(int observation_dimension)
     case 5: return 11.070;
     case 6: return 12.592;
     case 7: return 14.067;
-    default: return 15.507;
+    case 8: return 15.507;
+    case 9: return 16.919;
+    case 10: return 18.307;
+    case 11: return 19.675;
+    case 12: return 21.026;
+    case 13: return 22.362;
+    case 14: return 23.685;
+    case 15: return 24.996;
+    default: return 26.296;
     }
 }
 
@@ -87,6 +95,7 @@ Eigen::VectorXd ExtendedKalmanFilter::update(const Eigen::VectorXd &z, const Eig
                                              std::function<Eigen::VectorXd(const Eigen::VectorXd &, const Eigen::VectorXd &)> z_subtract)
 {
     last_update_applied = false;
+    last_kalman_gain_.resize(0, 0);
 
     data["update_applied"] = 0.0; 
 
@@ -170,6 +179,7 @@ Eigen::VectorXd ExtendedKalmanFilter::update(const Eigen::VectorXd &z, const Eig
     if (posterior_ldlt.info() != Eigen::Success || !posterior_ldlt.vectorD().allFinite() ||
         posterior_ldlt.vectorD().minCoeff() < -1e-9)
         return reject_numeric_update();
+    last_kalman_gain_ = K;
     last_update_applied = true;
     data["update_applied"] = 1.0;
 
@@ -181,7 +191,7 @@ Eigen::VectorXd ExtendedKalmanFilter::update(const Eigen::VectorXd &z, const Eig
     {
         const Eigen::VectorXd state_delta = x - x_prior;
         const Eigen::VectorXd state_solution = posterior_ldlt.solve(state_delta);
-        nees       = state_delta.dot(state_solution);
+        nees = state_delta.dot(state_solution);
         nees_valid = std::isfinite(nees) && nees >= 0.0;
     }
 
@@ -192,13 +202,10 @@ Eigen::VectorXd ExtendedKalmanFilter::update(const Eigen::VectorXd &z, const Eig
     const bool nis_valid   = std::isfinite(nis) && nis >= 0.0;
     const bool nis_failed  = !nis_valid || nis > nis_threshold;
     const bool nees_failed = nees_valid && nees > nees_threshold;
-
     if (nis_failed) nis_count_++, data["nis_fail"] = 1;
     if (nees_failed) nees_count_++, data["nees_fail"] = 1;
-
     total_count_++;
     last_nis = nis_valid ? nis : 0.0;
-    
     data["nis_valid"]  = nis_valid ? 1.0 : 0.0;
     data["nees_valid"] = nees_valid ? 1.0 : 0.0;
     data["nis"]        = nis_valid ? nis : 0.0;

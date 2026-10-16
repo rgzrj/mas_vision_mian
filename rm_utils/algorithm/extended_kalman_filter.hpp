@@ -77,8 +77,11 @@ class ExtendedKalmanFilter
     double                        last_nis = 0.0;
     bool                          last_update_applied = false;    // 上一次更新是否被应用
 
+    const Eigen::MatrixXd &last_kalman_gain() const noexcept { return last_kalman_gain_; }
+
   private:
     Eigen::MatrixXd                                                                  I;
+    Eigen::MatrixXd                                                                  last_kalman_gain_;
     std::function<Eigen::VectorXd(const Eigen::VectorXd &, const Eigen::VectorXd &)> x_add;
 
     int nees_count_  = 0;         // NEES 计数器

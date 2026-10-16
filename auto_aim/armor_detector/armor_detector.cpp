@@ -489,7 +489,7 @@ std::vector<Armor> ArmorDetector::findArmors(const std::vector<LightBar> &lights
             }
 
             // 装甲板类型判断
-            if (armor.ratio > 3.0)
+            if (armor.init_ratio > 3.0)
             {
                 armor.type = ArmorType::BIG;
             }

@@ -10,7 +10,7 @@ void serial_thread_func()
     MAS_LOG_INFO("Serial processing thread started");
 
     UserSerial &serial = UserSerial::getInstance();
-    
+
     auto       last_send_time = std::chrono::steady_clock::now();
     const auto send_interval  = std::chrono::milliseconds(4);
 
