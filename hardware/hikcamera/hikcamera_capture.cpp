@@ -160,8 +160,9 @@ CameraFrame hikcamera::HikCamera::getImage()
 
     if (has_data && !frame_queue_.empty())
     {
-        CameraFrame frame = std::move(frame_queue_.front());
-        frame_queue_.pop();
+        // 在原有队列锁内取最新帧，跳过尚未交给外层的旧帧。
+        CameraFrame frame = std::move(frame_queue_.back());
+        while (!frame_queue_.empty()) frame_queue_.pop();
         return frame;
     }
 

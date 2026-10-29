@@ -1,0 +1,11 @@
+# 原track、相机、串口文件不修改；录制使用当前工程的独立副本。
+# 路径以本YAML所在目录为起点。
+recording:
+  auto_aim_yaml: auto_aim.yaml
+  camera_yaml: hikcamera.yaml
+  serial_yaml: serial_config.yaml
+  output_dir: ../data/recordings
+  fps: 60.0                  # 仅视频元数据；回放dt取每帧真实时间戳
+  max_record_fps: 60.0       # 曝光时间轴上实际选帧；0保存所有处理帧
+  codec: MJPG                # 优先OpenCV MJPEG后端；无损FFV1需先验证吞吐
+  queue_size: 32             # 缓冲短时卡顿，满队列仍明确报错

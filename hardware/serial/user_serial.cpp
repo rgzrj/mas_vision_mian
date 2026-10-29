@@ -169,7 +169,8 @@ void UserSerial::sendVision(float target_yaw, float target_pitch, uint8_t found,
     std::lock_guard<std::mutex> lock(send_packet_mutex_);
     send_packet_.target_yaw   = target_yaw;
     send_packet_.target_pitch = target_pitch;
-    send_packet_.fire_advice = found ? fire_advice : 0;
+    send_packet_.found        = found;
+    send_packet_.fire_advice  = found ? fire_advice : 0;
 }
 
 void UserSerial::disableVision()

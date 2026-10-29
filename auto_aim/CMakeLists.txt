@@ -7,7 +7,6 @@ add_library(auto_aim STATIC
     armor_track/armor_pose.cpp
     armor_track/armor_target.cpp
     armor_shoot/armor_shoot.cpp
-    armor_shoot/armor_shoot_debug.cpp
 )
 
 find_package(OpenCV REQUIRED)

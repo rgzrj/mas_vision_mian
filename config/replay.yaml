@@ -1,0 +1,12 @@
+# 相对路径以本YAML所在目录为起点；已有session的replay.yaml也可以直接使用。
+replay:
+  video: ../data/recordings/session/video.avi
+  frames_csv: ../data/recordings/session/frames.csv
+  auto_aim_yaml: ../data/recordings/session/auto_aim.yaml
+  camera_yaml: ../data/recordings/session/hikcamera.yaml
+  output_dir: ../data/replay
+  speed: 1.0
+  display: true
+  # 不写ekf时保留原代码默认值。调参只作用于回放生成的Target，实机代码不变。
+  # ekf:
+  #   v1: 10.0

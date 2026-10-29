@@ -34,13 +34,7 @@ auto_aim:
     pitch_offset: 1.0              # 单位：度
     bullet_speed: 16.0             # 子弹初速度，单位：m/s
     gravity: 9.81                  # 重力加速度，单位：m/s^2
-    resistance: 0.014              # Alliance 二次空气阻力系数，单位：1/m
-    model_prediction_enable: true  # 使用处理、发弹和飞行时间预测目标未来位置
-    fire_phase_angle: 30.0         # SP固定±60°选板；独立开火门仍为±30°
-    max_yaw_speed: 12.0            # 指令规划最大 yaw 速度，单位：rad/s
-    max_pitch_speed: 8.0           # 指令规划最大 pitch 速度，单位：rad/s
-    max_yaw_acc: 50.0              # 指令规划最大 yaw 加速度，单位：rad/s^2
-    max_pitch_acc: 100.0           # 指令规划最大 pitch 加速度，单位：rad/s^2
+    resistance: 0.014              # 二次空气阻力系数，单位：1/m
     fire_delay_time: 0.080         # 统一发弹延迟，单位：s
     yaw_tolerance_near: 2.0        # yaw射击容差（距离<3m），单位：度
     yaw_tolerance_far: 1.0         # yaw射击容差（距离>=3m），单位：度

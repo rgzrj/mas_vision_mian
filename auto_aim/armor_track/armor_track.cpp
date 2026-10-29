@@ -42,7 +42,6 @@ std::optional<Target> ArmorTrack::track(std::vector<Armor> &armors,
                                          std::chrono::steady_clock::time_point t,
                                         std::string window_name, cv::Mat bgr_img) noexcept
 {
-    measurement_accepted_          = false;
     const std::string state_before = state_;
     const auto dt = rm_utils::delta_time(t, last_timestamp_);
     last_timestamp_ = t;
@@ -89,7 +88,6 @@ std::optional<Target> ArmorTrack::track(std::vector<Armor> &armors,
                 raw_pnp_armor_yaw_    = armors.front().ypr_in_world[0];
                 raw_pnp_valid_        = true;
                 found                 = set_target(armors.front(), t);
-                measurement_accepted_ = found;
                 reject_reason_        = found ? "accepted_init" : "target_init_failed";
             }
             else reject_reason_ = "pnp_failed";
@@ -243,6 +241,7 @@ bool ArmorTrack::update_target(std::vector<Armor> &armors,
         ++pnp_attempt_count_;
         if (!armor_pose_.GetArmorPose(armor)) continue;
         ++pnp_success_count_;
+        
         raw_pnp_xyz_       = armor.xyz_in_world;
         raw_pnp_armor_yaw_ = armor.ypr_in_world[0];
         raw_pnp_valid_     = true;
@@ -260,7 +259,6 @@ bool ArmorTrack::update_target(std::vector<Armor> &armors,
         return false;
     }
     target_               = std::move(trial);
-    measurement_accepted_ = true;
     reject_reason_        = "accepted_pose";
     return true;
 }
@@ -280,7 +278,6 @@ void ArmorTrack::plotDiagnostics(const std::vector<Armor> &armors, bool found, d
     data["detected_armor_count"] = armors.size();
     data["matching_armor_count"] = matching_armor_count_;
     data["association_found"] = found;
-    data["measurement_accepted"] = measurement_accepted_;
     data["observation_mode"] = "pnp_pose";
     data["pnp_attempt_count"] = pnp_attempt_count_;
     data["pnp_success_count"] = pnp_success_count_;

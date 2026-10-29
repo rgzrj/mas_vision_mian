@@ -37,6 +37,7 @@ struct __attribute__((packed)) ReceivePacket
 // 发送结构体
 struct __attribute__((packed)) SendPacket
 {
+    bool    found;
     float   target_yaw;
     float   target_pitch;
     uint8_t fire_advice;

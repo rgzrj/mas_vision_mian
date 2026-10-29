@@ -41,7 +41,6 @@ class ArmorTrack
                                 cv::Mat bgr_img = cv::Mat()) noexcept;
 
     std::string state() const { return state_; }
-    bool measurement_accepted() const noexcept { return measurement_accepted_; }
 
   private:
     /**
@@ -69,7 +68,6 @@ class ArmorTrack
     double                                raw_pnp_armor_yaw_    = 0.0;                       // 保存本帧原始 PnP 解算出来的装甲板偏航角
     bool                                  raw_pnp_valid_        = false;                     // 本帧原始 PnP 解算是否有效
     int                                   matching_armor_count_ = 0;                         // 本帧匹配到目标编号和类型的装甲板数量
-    bool                                  measurement_accepted_ = false;                     // 本帧 PnP 解算是否被 EKF 接受
     int                                   pnp_attempt_count_    = 0;                         // 本帧尝试 PnP 解算的次数
     int                                   pnp_success_count_    = 0;                         // 本帧成功 PnP 解算的次数
     double                                innovation_z_         = 0.0;                       // 本帧 PnP 与 EKF 预测的 z 方向新息
