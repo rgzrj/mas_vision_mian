@@ -177,6 +177,7 @@ void UserSerial::disableVision()
 {
     std::lock_guard<std::mutex> lock(send_packet_mutex_);
     send_packet_.fire_advice = 0;
+    send_packet_.found       = 0;
 }
 
 void UserSerial::sendPacketToSerial()
