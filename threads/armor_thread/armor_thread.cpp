@@ -87,8 +87,7 @@ void armor_thread_func(std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> hikcamer
                     tracker.armor_pose().set_R_gimbal2world(pos);
                     auto target = tracker.track(armors, frame.timestamp, "HikCamera_track", frame.frame);
                     auto shoot_result = shooter.shoot(target, frame.timestamp, tracker.armor_pose().Get_R_gimbal2world(),
-                                                      frame.frame, "HikCamera_shoot", quaternion_age_ms,
-                                                      tracker.measurement_accepted());
+                                                      frame.frame, "HikCamera_shoot");
                     serial.sendVision(shoot_result.target_yaw, shoot_result.target_pitch, shoot_result.found, shoot_result.fire_advice);
                     processed = true;
                 }
