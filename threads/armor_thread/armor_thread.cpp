@@ -61,6 +61,12 @@ void armor_thread_func(std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> hikcamer
         // 获取并处理海康相机数据
         if (hikcamerabuffer)
         {
+            // 仅跳过本轮已积压的旧帧，避免持续追着新入队帧出队。
+            for (auto pending = hikcamerabuffer->size(); pending > 1; --pending)
+            {
+                if (hikcamerabuffer->front()) hikcamerabuffer->pop();
+            }
+
             if (auto *f = hikcamerabuffer->front())
             {
                 CameraFrame frame = std::move(*f);
@@ -87,8 +93,7 @@ void armor_thread_func(std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> hikcamer
                     tracker.armor_pose().set_R_gimbal2world(pos);
                     auto target = tracker.track(armors, frame.timestamp, "HikCamera_track", frame.frame);
                     auto shoot_result = shooter.shoot(target, frame.timestamp, tracker.armor_pose().Get_R_gimbal2world(),
-                                                      frame.frame, "HikCamera_shoot", quaternion_age_ms,
-                                                      tracker.measurement_accepted());
+                                                      frame.frame, "HikCamera_shoot");
                     serial.sendVision(shoot_result.target_yaw, shoot_result.target_pitch, shoot_result.found, shoot_result.fire_advice);
                     processed = true;
                 }
@@ -98,6 +103,12 @@ void armor_thread_func(std::shared_ptr<rigtorp::SPSCQueue<CameraFrame>> hikcamer
         // 获取并处理 USB 相机数据
         if (usbcamera_buffer)
         {
+            // 与海康一致，只处理本轮缓存中最新的一帧。
+            for (auto pending = usbcamera_buffer->size(); pending > 1; --pending)
+            {
+                if (usbcamera_buffer->front()) usbcamera_buffer->pop();
+            }
+            
             if (auto *f = usbcamera_buffer->front())
             {
                 CameraFrame frame = std::move(*f);

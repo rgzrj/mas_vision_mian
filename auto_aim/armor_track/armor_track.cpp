@@ -286,6 +286,27 @@ void ArmorTrack::plotDiagnostics(const std::vector<Armor> &armors, bool found, d
     data["raw_pnp"]["y"] = raw_pnp_xyz_.y();
     data["raw_pnp"]["z"] = raw_pnp_xyz_.z();
     data["raw_pnp"]["armor_yaw"] = raw_pnp_armor_yaw_;
+
+    // 手眼标定只记录原始角点和同帧云台姿态，不使用当前相机外参或 EKF 结果。
+    // 字段每帧固定输出，避免 plot_monitor 按字段集合拆成多个 CSV。
+    const bool handeye_valid = armors.size() == 1 && armors.front().type != ArmorType::UNKNOWN &&
+                               armors.front().points.size() == 4;
+    data["handeye"]["valid"]     = handeye_valid;
+    data["handeye"]["armor_big"] = handeye_valid && armors.front().type == ArmorType::BIG;
+    for (int i = 0; i < 4; ++i)
+    {
+        const cv::Point2f point = handeye_valid ? armors.front().points[i] : cv::Point2f{};
+        const std::string name  = "p" + std::to_string(i);
+        data["handeye"][name]["x"] = point.x;
+        data["handeye"][name]["y"] = point.y;
+    }
+
+    const Eigen::Matrix3d R_gimbal2world = armor_pose_.Get_R_gimbal2world();
+    for (int row = 0; row < 3; ++row)
+        for (int col = 0; col < 3; ++col)
+            data["handeye"]["R_gimbal2world"]["r" + std::to_string(row) + std::to_string(col)] =
+                R_gimbal2world(row, col);
+
     data["innovation_z"] = innovation_z_;
     data["innovation_norm"] = innovation_norm_;
     data["target_name"] = target_ ? target_->name : "none";
