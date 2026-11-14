@@ -3,6 +3,9 @@
 
 #include "armor_target.hpp"
 #include "plotter.hpp"
+#include "serial_types.hpp"
+#include "user_serial.hpp"
+
 #include <Eigen/Dense>
 #include <chrono>
 #include <cstdint>
@@ -33,14 +36,6 @@ struct AimPoint
     AimMode         mode;         ///< 使用的瞄准模式
 };
 
-struct ShootResult
-{
-    bool    found        = false;
-    uint8_t fire_advice  = 0;
-    float   target_yaw   = 0.0F;
-    float   target_pitch = 0.0F;
-};
-
 class ArmorShoot
 {
   public:
@@ -58,7 +53,7 @@ class ArmorShoot
      * @details 根据当前目标状态、时间戳和云台旋转，计算发射指令，
      *              包括 yaw、pitch 和发射建议。可选地使用图像调试窗口显示当前帧信息
      */
-    ShootResult shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp,
+    SendPacket shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp,
                      const Eigen::Matrix3d &R_gimbal2world, const cv::Mat &bgr_img = cv::Mat(),
                      const std::string &window_name = "");
 
@@ -71,7 +66,8 @@ class ArmorShoot
     double spinning_threshold_low_  = 2 ;        ///< 低速旋转阈值（rad/s）
 
     int    lock_id_ = -1;          ///< 当前锁定的模型装甲板 ID
-    double last_target_yaw_ = 0.0; ///< 连续化后的目标 yaw（跨帧累加，可超出 ±π）
+    float last_target_yaw_   = 0.0; ///< 连续化后的目标 yaw（跨帧累加，可超出 ±π）
+    float last_target_pitch_ = 0.0; ///< 连续化后的目标 pitch（跨帧累加，可超出 ±π）
 
     /**
      * @brief 选择最佳瞄准点

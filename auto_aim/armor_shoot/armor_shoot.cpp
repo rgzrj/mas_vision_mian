@@ -47,7 +47,7 @@ ArmorShoot::ArmorShoot(const std::string &config_path)
 
 ArmorShoot::~ArmorShoot() = default;
 
-ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp,
+SendPacket ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::steady_clock::time_point timestamp,
                              const Eigen::Matrix3d &R_gimbal2world, const cv::Mat &bgr_img, const std::string &window_name)
 {
     // 从旋转矩阵提取云台欧拉角（yaw, pitch）
@@ -60,7 +60,7 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
     {
         AimPoint aim_point = {false, Eigen::Vector4d::Zero(), false, -1, AimMode::TRACK};
         if (debug_) showDebug(target, aim_point, gimbal_yaw, gimbal_pitch, 0.0f, 0.0f, 0, bgr_img, window_name);
-        return {};
+        return {false, last_target_yaw_, last_target_pitch_, 0};
     }
 
     // 总延迟 = 处理延迟 + 发弹延迟
@@ -83,7 +83,7 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
         debug_aim_point.valid = false;
         AimPoint aim_point    = {false, Eigen::Vector4d::Zero(), false, -1, AimMode::TRACK};
         if (debug_) showDebug(target, aim_point, gimbal_yaw, gimbal_pitch, 0.0f, 0.0f, 0, bgr_img, window_name);
-        return {};
+        return {true, last_target_yaw_, last_target_pitch_, 0};
     }
 
 // 迭代求解飞行时间 (最多 10 次，收敛条件：相邻两次 fly_time 差 < 0.001)
@@ -105,7 +105,7 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
         {
             AimPoint aim_point = {false, Eigen::Vector4d::Zero(), false, -1, AimMode::TRACK};
             if (debug_) showDebug(target, aim_point, gimbal_yaw, gimbal_pitch, 0.0f, 0.0f, 0, bgr_img, window_name);
-            return {};
+            return {true, last_target_yaw_, last_target_pitch_, 0};
         }
 
         // 计算新弹道
@@ -120,7 +120,7 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
             debug_aim_point.valid = false;
             AimPoint aim_point    = {false, Eigen::Vector4d::Zero(), false, -1, AimMode::TRACK};
             if (debug_) showDebug(target, aim_point, gimbal_yaw, gimbal_pitch, 0.0f, 0.0f, 0, bgr_img, window_name);
-            return {};
+            return {true, last_target_yaw_, last_target_pitch_, 0};
         }
 
         // 检查收敛条件
@@ -170,11 +170,11 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
     {
         nlohmann::json data;
 
-        // ShootResult 数据
-        data["ShootResult"]["found"]        = 1;
-        data["ShootResult"]["fire_advice"]  = fire;
-        data["ShootResult"]["target_yaw"]   = yaw * 57.3f;   // 转换为度
-        data["ShootResult"]["target_pitch"] = pitch * 57.3f; // 转换为度
+        // SendPacket 数据
+        data["SendPacket"]["found"]        = 1;
+        data["SendPacket"]["fire_advice"]  = fire;
+        data["SendPacket"]["target_yaw"]   = yaw * 57.3f;   // 转换为度
+        data["SendPacket"]["target_pitch"] = pitch * 57.3f; // 转换为度
 
         // 当前云台姿态（yaw, pitch, roll）
         data["gimbal"]["yaw"]   = gimbal_yaw * 57.3;      // 转换为度
@@ -197,11 +197,15 @@ ShootResult ArmorShoot::shoot(const std::optional<Target> &target, std::chrono::
     }
 
     // 返回结果
-    ShootResult result;
+    SendPacket result;
     result.found        = true;
     result.fire_advice  = fire;
     result.target_yaw   = yaw;
     result.target_pitch = pitch;
+
+    last_target_pitch_ = pitch; 
+    last_target_yaw_   = yaw;   
+
     return result;
 }
 

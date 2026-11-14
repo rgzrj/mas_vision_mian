@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <chrono>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -126,15 +127,28 @@ class Target
     std::chrono::steady_clock::time_point init_timestamp_; // 初始化时间戳
     std::chrono::steady_clock::time_point timestamp_;      // 时间戳
 
-    double                                last_innovation_z_         = 0.0;       // 上一帧更新的 z 方向新息
-    double                                last_innovation_norm_      = 0.0;       // 上一帧更新的位移新息
+    // 前哨站：按模型ID缓存高度；高度差以首次观测板M0为参考，单位：m。
+    std::array<double, 3> plate_z_{{std::numeric_limits<double>::quiet_NaN(),
+                                   std::numeric_limits<double>::quiet_NaN(),
+                                   std::numeric_limits<double>::quiet_NaN()}};
+    std::array<double, 3> plate_dz_{{0.0, 0.0, 0.0}};
+
+    double last_innovation_z_    = 0.0;       // 上一帧更新的 z 方向新息
+    double last_innovation_norm_ = 0.0;       // 上一帧更新的位移新息
 
     std::array<int, 2> group_visits_{{0, 0}}; // 两组独立装甲板访问次数
 
-    unsigned int       observed_id_mask_         = 0;  // 已成功关联的四板 ID 位图
+    unsigned int       observed_id_mask_   = 0;  // 已成功关联的四板 ID 位图
     int                last_observed_id_   = -1; // 上一次计入几何证据的模型 ID
-    bool               geometry_committed_             = false; // 四个模型板均已提供 PnP 位姿观测
+    bool               geometry_committed_ = false; // 四个模型板均已提供 PnP 位姿观测
 
+    /**
+     * @brief 更新高度缓存(前哨站)
+     * @param id 装甲板 ID
+     * @param z 装甲板在世界坐标系下的 z 坐标（单位：米）
+     * @details 根据装甲板 ID 更新高度缓存，并计算高度差
+     */
+    void update_height(int id, double z);
     /**
      * @brief 更新EKF（yaw, pitch, distance, angle）
      */

@@ -59,6 +59,9 @@ Target::Target(const Armor &armor, std::chrono::steady_clock::time_point t, doub
     };
 
     ekf_ = rm_utils::ExtendedKalmanFilter(x0, P0, x_add);
+
+    // 前哨站高度缓存
+    if (name == "outpost") update_height(0, xyz[2]);
 }
 
 /**
@@ -173,7 +176,14 @@ bool Target::update(const Armor &armor)
     }
     if (best_id < 0) return false;
 
-    const Eigen::Vector3d innovation = armor.xyz_in_world - predicted[best_id].head<3>();
+    Eigen::Vector3d predicted_xyz = predicted[best_id].head<3>();
+    if (name == "outpost")
+    {
+        update_height(best_id, armor.xyz_in_world[2]);
+        predicted_xyz = h_armor_xyz(ekf_.x, best_id);
+    }
+
+    const Eigen::Vector3d innovation = armor.xyz_in_world - predicted_xyz;
     last_innovation_z_    = innovation.z();
     last_innovation_norm_ = innovation.norm();
     
@@ -191,6 +201,38 @@ bool Target::update(const Armor &armor)
                                        group_visits_[1]))
         geometry_committed_ = true;
     return true;
+}
+
+void Target::update_height(int id, double z)
+{
+    constexpr double step = 0.102;
+    auto &height = plate_z_[id];
+    // 只在初始化或切板时采样，避免板面转斜时反复重判高度层。
+    if (id == last_id && !std::isnan(height)) return;
+    height = std::isnan(height) ? z : 0.9 * height + 0.1 * z;
+
+    // 未看全三板时，沿用RMCS的相对高度表；M0始终是高度参考。
+    if (std::any_of(plate_z_.begin(), plate_z_.end(), [](double h) { return std::isnan(h); }))
+    {
+        if (id == 1) plate_dz_[id] = z > ekf_.x[4] ? 2 * step : -step;
+        if (id == 2) plate_dz_[id] = z > ekf_.x[4] ? step : -2 * step;
+        return;
+    }
+
+    // 高/中/低比较：沿正相位，高→中→低，各相差120°。
+    // 判断M0属于哪层，不把模型ID0直接当成高板或低板。
+    int level;
+    if (plate_z_[0] > plate_z_[1] && plate_z_[0] > plate_z_[2])
+        level = 0; // 高
+    else if (plate_z_[0] > plate_z_[1] && plate_z_[0] < plate_z_[2])
+        level = 1; // 中
+    else if (plate_z_[0] < plate_z_[1] && plate_z_[0] < plate_z_[2])
+        level = 2; // 低
+    else
+        return; // 高度暂不能区分，保留上一组对应，后续观测继续确认。
+
+    for (int i = 0; i < 3; ++i)
+        plate_dz_[i] = -step * (((level + i) % 3) - level);
 }
 
 void Target::record_observation(int id)
@@ -245,14 +287,14 @@ void Target::update_ypda(const Armor &armor, int id)
  */
 Eigen::Vector3d Target::h_armor_xyz(const Eigen::VectorXd &x, int id) const
 {
-    // 前哨站特殊处理：三层高度，每层一个装甲板
+    // 前哨站：x[4]为参考板M0的高度，其他板按已识别的高度差生成。
     if (name == "outpost")
     {
         auto angle = rm_utils::limit_rad(x[6] + id * 2 * CV_PI / 3);
         auto r     = x[8];
         auto ax    = x[0] - r * std::cos(angle);
         auto ay    = x[2] - r * std::sin(angle);
-        auto az    = x[4] + (id - 1) * 0.102;
+        auto az    = x[4] + plate_dz_[id];
         return {ax, ay, az};
     }
 
